@@ -18,6 +18,7 @@ class FlorApp {
                 theme: 'dark',
                 teenMode: false,
                 reminders: false,
+                cycleType: 'regular',
                 avgCycleLength: 28,
                 avgPeriodLength: 5
             }
@@ -76,6 +77,30 @@ class FlorApp {
         themeToggle.addEventListener('change', (e) => {
             this.data.settings.theme = e.target.checked ? 'dark' : 'light';
             this.applyTheme();
+            this.saveData();
+        });
+
+        // Configurações de Ciclo
+        const cycleTypeSelect = document.getElementById('cycle-type');
+        const cycleLengthInput = document.getElementById('cycle-length-input');
+        const periodLengthInput = document.getElementById('period-length-input');
+
+        cycleTypeSelect.value = this.data.settings.cycleType || 'regular';
+        cycleLengthInput.value = this.data.settings.avgCycleLength;
+        periodLengthInput.value = this.data.settings.avgPeriodLength;
+
+        cycleTypeSelect.addEventListener('change', (e) => {
+            this.data.settings.cycleType = e.target.value;
+            this.saveData();
+        });
+
+        cycleLengthInput.addEventListener('change', (e) => {
+            this.data.settings.avgCycleLength = parseInt(e.target.value) || 28;
+            this.saveData();
+        });
+
+        periodLengthInput.addEventListener('change', (e) => {
+            this.data.settings.avgPeriodLength = parseInt(e.target.value) || 5;
             this.saveData();
         });
 
@@ -220,16 +245,19 @@ class FlorApp {
         if (this.data.cycles.length > 0) {
             const currentCycle = this.data.cycles[this.data.cycles.length - 1];
             const startDate = new Date(currentCycle.start);
-            const today = new Date();
+            const todayStr = this.formatDate(new Date());
+            const today = new Date(todayStr);
             const diffTime = Math.abs(today - startDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
             
             cycleDayText = diffDays;
             
             const avg = this.data.settings.avgCycleLength;
             const daysLeft = avg - diffDays;
             
-            if (daysLeft > 0) {
+            if (this.data.settings.cycleType === 'irregular') {
+                predictionText = "Previsão imprecisa (Ciclo Irregular)";
+            } else if (daysLeft > 0) {
                 predictionText = `Próximo em ~${daysLeft} dias`;
             } else if (daysLeft === 0) {
                 predictionText = "Esperado para hoje";

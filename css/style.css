@@ -619,6 +619,22 @@ textarea:focus {
     padding-bottom: 0;
 }
 
+.settings-input {
+    background: var(--bg-color);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    max-width: 120px;
+    text-align: right;
+}
+
+.settings-input:focus {
+    border-color: var(--primary);
+}
+
 .switch {
     position: relative;
     display: inline-block;

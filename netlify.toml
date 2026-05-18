@@ -1,0 +1,24 @@
+[build]
+  # Como a nossa app é apenas HTML, CSS e JS, não precisamos de comando de build.
+  # Publicamos diretamente a raiz do projeto.
+  publish = "."
+
+# Impedir que o Service Worker fique em cache nos servidores da Netlify
+# Isto garante que sempre que a app for atualizada, os utilizadores recebem a nova versão
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Políticas de segurança básicas para garantir privacidade
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
