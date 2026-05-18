@@ -24,13 +24,23 @@ class FlorApp {
             }
         };
 
-        const saved = localStorage.getItem('flor_data');
-        return saved ? JSON.parse(saved) : defaultData;
+        try {
+            const saved = localStorage.getItem('flor_data');
+            return saved ? JSON.parse(saved) : defaultData;
+        } catch (e) {
+            console.warn('LocalStorage error, using default data:', e);
+            return defaultData;
+        }
     }
 
     saveData() {
-        localStorage.setItem('flor_data', JSON.stringify(this.data));
-        this.updateViews();
+        try {
+            localStorage.setItem('flor_data', JSON.stringify(this.data));
+            this.updateViews();
+        } catch (e) {
+            console.error('Failed to save to LocalStorage:', e);
+            // Em caso de quota excedida, pode ser útil avisar a utilizadora
+        }
     }
 
     formatDate(date) {
@@ -319,9 +329,13 @@ class FlorApp {
             fertileEnd = new Date(ovulation.getTime() + (1 * 24 * 60 * 60 * 1000));
         }
 
+        const fragment = document.createDocumentFragment();
+
         // Empty cells
         for (let i = 0; i < firstDay; i++) {
-            grid.innerHTML += `<div class="day-cell empty"></div>`;
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'day-cell empty';
+            fragment.appendChild(emptyDiv);
         }
 
         // Days
@@ -349,8 +363,10 @@ class FlorApp {
             dayDiv.textContent = i;
             dayDiv.addEventListener('click', () => this.openLogModal(date));
             
-            grid.appendChild(dayDiv);
+            fragment.appendChild(dayDiv);
         }
+        
+        grid.appendChild(fragment);
     }
 
     updateStats() {

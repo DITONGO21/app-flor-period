@@ -37,36 +37,24 @@ self.addEventListener('activate', event => {
     return self.clients.claim();
 });
 
-// Estratégia de Fetch: Cache First, fallback to Network (100% Offline Focus)
+// Estratégia de Fetch: Stale-While-Revalidate
 self.addEventListener('fetch', event => {
     event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Se encontrar na cache, devolve
-                if (response) {
-                    return response;
+        caches.match(event.request).then(cachedResponse => {
+            const fetchPromise = fetch(event.request).then(networkResponse => {
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, responseToCache);
+                    });
                 }
-                
-                // Se não encontrar, tenta buscar na rede (e adiciona à cache opcionalmente)
-                return fetch(event.request).then(
-                    function(response) {
-                        // Verifica se a resposta é válida
-                        if(!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
-
-                        var responseToCache = response.clone();
-                        caches.open(CACHE_NAME)
-                            .then(function(cache) {
-                                cache.put(event.request, responseToCache);
-                            });
-
-                        return response;
-                    }
-                );
+                return networkResponse;
             }).catch(() => {
-                // Fallback de emergência (ex: se tentar aceder a ficheiros de rede sem internet e não estiver em cache)
-                console.log('Service Worker: Fetch falhou, modo estritamente offline.');
-            })
+                console.log('SW: Modo offline ativado. Falha de rede mitigada.');
+            });
+
+            // Retorna imediatamente da cache se existir, em paralelo atualiza a cache com a versão da net
+            return cachedResponse || fetchPromise;
+        })
     );
 });

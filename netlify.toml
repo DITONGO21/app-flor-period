@@ -1,7 +1,6 @@
 [build]
-  # Como a nossa app é apenas HTML, CSS e JS, não precisamos de comando de build.
-  # Publicamos diretamente a raiz do projeto.
-  publish = "."
+  # Publica o diretório raiz automaticamente
+  publish = "/"
 
 # Impedir que o Service Worker fique em cache nos servidores da Netlify
 # Isto garante que sempre que a app for atualizada, os utilizadores recebem a nova versão
