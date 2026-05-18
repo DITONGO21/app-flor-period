@@ -1,10 +1,11 @@
-// Flor App - Main Logic (100% Offline)
+// Flor App - Advanced Logic (100% Offline)
 
 class FlorApp {
     constructor() {
         this.data = this.loadData();
         this.currentDate = new Date();
         this.selectedDate = new Date();
+        this.isAuthenticated = !this.data.settings.pin; // Se não tiver PIN, está logo autenticado
         
         this.init();
     }
@@ -12,12 +13,12 @@ class FlorApp {
     // --- DATA MANAGEMENT ---
     loadData() {
         const defaultData = {
-            cycles: [], // Array de objetos { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
-            logs: {},   // Objeto chaveado por 'YYYY-MM-DD'
+            cycles: [], 
+            logs: {},
             settings: {
                 theme: 'dark',
-                teenMode: false,
-                reminders: false,
+                mode: 'padrao', // padrao, gravidez, adolescente
+                pin: null,
                 cycleType: 'regular',
                 avgCycleLength: 28,
                 avgPeriodLength: 5
@@ -25,21 +26,31 @@ class FlorApp {
         };
 
         try {
-            const saved = localStorage.getItem('flor_data');
-            return saved ? JSON.parse(saved) : defaultData;
+            const saved = localStorage.getItem('flor_data_v2');
+            if (saved) return JSON.parse(saved);
+            
+            // Migração da v1 para v2
+            const oldSaved = localStorage.getItem('flor_data');
+            if (oldSaved) {
+                const parsed = JSON.parse(oldSaved);
+                parsed.settings.mode = 'padrao';
+                parsed.settings.pin = null;
+                localStorage.setItem('flor_data_v2', JSON.stringify(parsed));
+                return parsed;
+            }
+            return defaultData;
         } catch (e) {
-            console.warn('LocalStorage error, using default data:', e);
+            console.warn('Erro ao carregar dados:', e);
             return defaultData;
         }
     }
 
     saveData() {
         try {
-            localStorage.setItem('flor_data', JSON.stringify(this.data));
-            this.updateViews();
+            localStorage.setItem('flor_data_v2', JSON.stringify(this.data));
+            if (this.isAuthenticated) this.updateViews();
         } catch (e) {
-            console.error('Failed to save to LocalStorage:', e);
-            // Em caso de quota excedida, pode ser útil avisar a utilizadora
+            this.showToast('Erro ao guardar dados. Espaço cheio?');
         }
     }
 
@@ -47,8 +58,24 @@ class FlorApp {
         return date.toISOString().split('T')[0];
     }
 
+    showToast(msg) {
+        const toast = document.getElementById('toast-msg');
+        toast.textContent = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
     // --- INITIALIZATION ---
     init() {
+        if (!this.isAuthenticated) {
+            this.setupPinScreen();
+        } else {
+            this.startApp();
+        }
+    }
+
+    startApp() {
+        document.getElementById('pin-screen').classList.add('hidden');
         this.setupNavigation();
         this.setupEventListeners();
         this.applyTheme();
@@ -56,32 +83,82 @@ class FlorApp {
         this.registerServiceWorker();
     }
 
+    setupPinScreen() {
+        const pinScreen = document.getElementById('pin-screen');
+        pinScreen.classList.remove('hidden');
+        
+        let currentInput = "";
+        const dots = document.querySelectorAll('.pin-dots .dot');
+        const updateDots = () => {
+            dots.forEach((dot, i) => {
+                if (i < currentInput.length) dot.classList.add('filled');
+                else dot.classList.remove('filled');
+            });
+        };
+
+        document.querySelectorAll('.pin-btn:not(.action)').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (currentInput.length < 4) {
+                    currentInput += btn.textContent;
+                    updateDots();
+                    if (currentInput.length === 4) {
+                        if (currentInput === this.data.settings.pin) {
+                            setTimeout(() => this.startApp(), 200);
+                        } else {
+                            currentInput = "";
+                            updateDots();
+                            this.showToast("PIN Incorreto");
+                        }
+                    }
+                }
+            });
+        });
+
+        document.getElementById('pin-delete').addEventListener('click', () => {
+            currentInput = currentInput.slice(0, -1);
+            updateDots();
+        });
+        document.getElementById('pin-clear').addEventListener('click', () => {
+            currentInput = "";
+            updateDots();
+        });
+    }
+
     setupNavigation() {
         const navItems = document.querySelectorAll('.nav-item');
-        const views = document.querySelectorAll('.view');
+        const views = document.querySelectorAll('.view:not(#pin-screen)');
 
         navItems.forEach(item => {
             item.addEventListener('click', () => {
-                // Update active nav
                 navItems.forEach(nav => nav.classList.remove('active'));
                 item.classList.add('active');
 
-                // Update active view
                 const targetId = item.getAttribute('data-target');
                 views.forEach(view => {
                     view.classList.remove('active');
-                    if (view.id === targetId) {
-                        view.classList.add('active');
-                    }
+                    if (view.id === targetId) view.classList.add('active');
                 });
 
                 if (targetId === 'view-calendar') this.renderCalendar();
+                if (targetId === 'view-stats') this.renderCharts();
+            });
+        });
+
+        // Tabs no Modal
+        const tabs = document.querySelectorAll('.modal-tab');
+        const panes = document.querySelectorAll('.tab-pane');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panes.forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
             });
         });
     }
 
     setupEventListeners() {
-        // Theme Toggle
+        // Theme
         const themeToggle = document.getElementById('theme-toggle');
         themeToggle.checked = this.data.settings.theme === 'dark';
         themeToggle.addEventListener('change', (e) => {
@@ -90,7 +167,15 @@ class FlorApp {
             this.saveData();
         });
 
-        // Configurações de Ciclo
+        // App Mode
+        const modeSelect = document.getElementById('app-mode');
+        modeSelect.value = this.data.settings.mode || 'padrao';
+        modeSelect.addEventListener('change', (e) => {
+            this.data.settings.mode = e.target.value;
+            this.saveData();
+        });
+
+        // Cycle Settings
         const cycleTypeSelect = document.getElementById('cycle-type');
         const cycleLengthInput = document.getElementById('cycle-length-input');
         const periodLengthInput = document.getElementById('period-length-input');
@@ -99,93 +184,121 @@ class FlorApp {
         cycleLengthInput.value = this.data.settings.avgCycleLength;
         periodLengthInput.value = this.data.settings.avgPeriodLength;
 
-        cycleTypeSelect.addEventListener('change', (e) => {
-            this.data.settings.cycleType = e.target.value;
-            this.saveData();
+        cycleTypeSelect.addEventListener('change', (e) => { this.data.settings.cycleType = e.target.value; this.saveData(); });
+        cycleLengthInput.addEventListener('change', (e) => { this.data.settings.avgCycleLength = parseInt(e.target.value) || 28; this.saveData(); });
+        periodLengthInput.addEventListener('change', (e) => { this.data.settings.avgPeriodLength = parseInt(e.target.value) || 5; this.saveData(); });
+
+        // PIN Setup
+        document.getElementById('btn-setup-pin').addEventListener('click', () => {
+            const newPin = prompt("Introduz 4 números para o novo PIN (ou deixa vazio para remover):");
+            if (newPin === null) return;
+            if (newPin === "" || (/^\d{4}$/.test(newPin))) {
+                this.data.settings.pin = newPin === "" ? null : newPin;
+                this.saveData();
+                this.showToast(newPin ? "PIN configurado!" : "PIN removido!");
+            } else {
+                this.showToast("PIN inválido. Tem de ter 4 números.");
+            }
         });
 
-        cycleLengthInput.addEventListener('change', (e) => {
-            this.data.settings.avgCycleLength = parseInt(e.target.value) || 28;
-            this.saveData();
-        });
-
-        periodLengthInput.addEventListener('change', (e) => {
-            this.data.settings.avgPeriodLength = parseInt(e.target.value) || 5;
-            this.saveData();
-        });
-
-        // Log Period Button (Home)
+        // Home Buttons
         document.getElementById('btn-log-period').addEventListener('click', () => {
             this.togglePeriod(this.formatDate(new Date()));
         });
-
-        // Modal Open/Close
         document.getElementById('btn-log-symptoms').addEventListener('click', () => this.openLogModal(new Date()));
-        document.getElementById('close-modal').addEventListener('click', () => this.closeLogModal());
+        
+        // Modals
+        document.getElementById('close-modal').addEventListener('click', () => document.getElementById('log-modal').classList.remove('open'));
+        document.getElementById('btn-educ').addEventListener('click', () => document.getElementById('edu-modal').classList.add('open'));
+        document.getElementById('close-edu-modal').addEventListener('click', () => document.getElementById('edu-modal').classList.remove('open'));
         
         // Pills Logic
         document.querySelectorAll('.pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
                 const isMulti = e.target.parentElement.classList.contains('multi');
                 if (!isMulti) {
+                    const isSelected = e.target.classList.contains('selected');
                     Array.from(e.target.parentElement.children).forEach(c => c.classList.remove('selected'));
+                    if(!isSelected) e.target.classList.add('selected'); // Toggleable
+                } else {
+                    e.target.classList.toggle('selected');
                 }
-                e.target.classList.toggle('selected');
             });
         });
 
-        // Save Log
         document.getElementById('save-log').addEventListener('click', () => this.saveDailyLog());
 
         // Calendar Nav
-        document.getElementById('prev-month').addEventListener('click', () => {
-            this.selectedDate.setMonth(this.selectedDate.getMonth() - 1);
-            this.renderCalendar();
-        });
-        document.getElementById('next-month').addEventListener('click', () => {
-            this.selectedDate.setMonth(this.selectedDate.getMonth() + 1);
-            this.renderCalendar();
-        });
+        document.getElementById('prev-month').addEventListener('click', () => { this.selectedDate.setMonth(this.selectedDate.getMonth() - 1); this.renderCalendar(); });
+        document.getElementById('next-month').addEventListener('click', () => { this.selectedDate.setMonth(this.selectedDate.getMonth() + 1); this.renderCalendar(); });
 
         // Discreet Mode
         document.getElementById('btn-discreet').addEventListener('click', () => {
-            document.body.style.filter = document.body.style.filter ? '' : 'blur(5px) grayscale(100%)';
-            setTimeout(() => { document.body.style.filter = ''; }, 3000); // Remove após 3s
+            const appDiv = document.getElementById('app');
+            appDiv.classList.toggle('blur-app');
+            if (appDiv.classList.contains('blur-app')) {
+                setTimeout(() => appDiv.classList.remove('blur-app'), 4000);
+            }
         });
 
-        // Export / Delete
+        // Backup
         document.getElementById('btn-export').addEventListener('click', () => this.exportData());
         document.getElementById('btn-delete-data').addEventListener('click', () => {
-            if(confirm("Tens a certeza que queres apagar todos os dados? Esta ação não pode ser desfeita e sendo 100% offline, os dados estão apenas neste dispositivo.")) {
+            if(confirm("Tens a certeza absoluta que queres APAGAR todos os teus dados íntimos?")) {
                 localStorage.removeItem('flor_data');
+                localStorage.removeItem('flor_data_v2');
                 location.reload();
             }
+        });
+        
+        // Import
+        document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
+        document.getElementById('file-import').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.settings && imported.logs) {
+                        this.data = imported;
+                        this.saveData();
+                        this.showToast("Backup importado com sucesso!");
+                    }
+                } catch(err) {
+                    this.showToast("Ficheiro inválido.");
+                }
+            };
+            reader.readAsText(file);
         });
     }
 
     applyTheme() {
         document.documentElement.setAttribute('data-theme', this.data.settings.theme);
+        
+        // Update App Mode visual badge
+        const badge = document.getElementById('mode-badge');
+        if (this.data.settings.mode === 'gravidez') {
+            badge.textContent = 'Gravidez'; badge.classList.remove('hidden');
+        } else if (this.data.settings.mode === 'adolescente') {
+            badge.textContent = 'Jovem'; badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
     }
 
     // --- CORE LOGIC ---
     togglePeriod(dateStr) {
-        // Logica simplificada: Adiciona aos logs que é dia de período
-        if (!this.data.logs[dateStr]) {
-            this.data.logs[dateStr] = { flow: 'medio', symptoms: [], mood: '', notes: '', isPeriod: true };
-        } else {
-            this.data.logs[dateStr].isPeriod = !this.data.logs[dateStr].isPeriod;
-        }
+        if (!this.data.logs[dateStr]) this.data.logs[dateStr] = { isPeriod: true };
+        else this.data.logs[dateStr].isPeriod = !this.data.logs[dateStr].isPeriod;
         
-        // Atualiza ciclos baseado nos logs (simplificado)
         this.recalculateCycles();
         this.saveData();
+        this.showToast(this.data.logs[dateStr].isPeriod ? "Menstruação ativada hoje" : "Menstruação parada");
     }
 
     recalculateCycles() {
-        // Acha todos os dias de periodo ordenados
-        const periodDays = Object.keys(this.data.logs)
-            .filter(date => this.data.logs[date].isPeriod)
-            .sort();
+        const periodDays = Object.keys(this.data.logs).filter(date => this.data.logs[date].isPeriod).sort();
         
         this.data.cycles = [];
         if (periodDays.length === 0) return;
@@ -197,32 +310,28 @@ class FlorApp {
             const currentDay = new Date(periodDays[i]);
             const diffDays = (currentDay - lastDay) / (1000 * 60 * 60 * 24);
 
-            if (diffDays > 5) { // Nova menstruação se intervalo > 5 dias
+            if (diffDays > 10) { // Gap > 10 days means new cycle
                 this.data.cycles.push({
                     start: currentCycleStart,
-                    end: this.formatDate(new Date(currentDay.getTime() - (1000 * 60 * 60 * 24))) // Dia antes do novo inicio
+                    end: this.formatDate(new Date(currentDay.getTime() - (1000 * 60 * 60 * 24)))
                 });
                 currentCycleStart = periodDays[i];
             }
             lastDay = currentDay;
         }
         
-        // Ciclo atual
-        this.data.cycles.push({
-            start: currentCycleStart,
-            end: null
-        });
+        this.data.cycles.push({ start: currentCycleStart, end: null });
 
-        // Atualizar médias se tiver mais de um ciclo finalizado
+        // Update Averages
         const finishedCycles = this.data.cycles.filter(c => c.end);
-        if (finishedCycles.length > 0) {
+        if (finishedCycles.length > 0 && this.data.settings.cycleType === 'regular') {
             let totalDays = 0;
             finishedCycles.forEach(c => {
-                const s = new Date(c.start);
-                const e = new Date(c.end);
-                totalDays += (e - s) / (1000 * 60 * 60 * 24) + 1;
+                totalDays += (new Date(c.end) - new Date(c.start)) / (1000 * 60 * 60 * 24) + 1;
             });
-            this.data.settings.avgCycleLength = Math.round(totalDays / finishedCycles.length);
+            // Mantém os limites configuráveis
+            let calculatedAvg = Math.round(totalDays / finishedCycles.length);
+            if(calculatedAvg >= 15 && calculatedAvg <= 90) this.data.settings.avgCycleLength = calculatedAvg;
         }
     }
 
@@ -235,63 +344,109 @@ class FlorApp {
 
     updateHome() {
         const todayStr = this.formatDate(new Date());
-        const isPeriodToday = this.data.logs[todayStr]?.isPeriod;
+        const logToday = this.data.logs[todayStr] || {};
         
         const btnLog = document.getElementById('btn-log-period');
-        if (isPeriodToday) {
-            btnLog.textContent = "Parar Menstruação";
+        if (logToday.isPeriod) {
+            btnLog.textContent = "Terminar Período de Hoje";
             btnLog.classList.remove('pulse');
+            btnLog.style.background = 'var(--text-muted)';
         } else {
-            btnLog.textContent = "Registar Menstruação";
+            btnLog.textContent = "Registar Início do Período";
             btnLog.classList.add('pulse');
+            btnLog.style.background = 'var(--primary)';
         }
 
-        // Cycle Day Calculation
         let cycleDayText = "--";
         let predictionText = "Regista o período para ver previsões";
-        let ovulDate = "--";
+        let ovulDateText = "--";
+        let fertilityProb = "Baixa";
         let progress = 0;
 
-        if (this.data.cycles.length > 0) {
-            const currentCycle = this.data.cycles[this.data.cycles.length - 1];
-            const startDate = new Date(currentCycle.start);
-            const todayStr = this.formatDate(new Date());
-            const today = new Date(todayStr);
-            const diffTime = Math.abs(today - startDate);
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            
-            cycleDayText = diffDays;
-            
-            const avg = this.data.settings.avgCycleLength;
-            const daysLeft = avg - diffDays;
-            
-            if (this.data.settings.cycleType === 'irregular') {
-                predictionText = "Previsão imprecisa (Ciclo Irregular)";
-            } else if (daysLeft > 0) {
-                predictionText = `Próximo em ~${daysLeft} dias`;
-            } else if (daysLeft === 0) {
-                predictionText = "Esperado para hoje";
-            } else {
-                predictionText = `${Math.abs(daysLeft)} dias de atraso`;
-            }
+        // Gravidez Mode Overrides
+        if (this.data.settings.mode === 'gravidez') {
+            document.getElementById('home-day-label').textContent = "SEMANA";
+            document.getElementById('ovulation-card').classList.add('hidden');
+            predictionText = "Modo Gravidez Ativo";
+            fertilityProb = "N/A";
+            cycleDayText = "💖";
+        } else {
+            document.getElementById('home-day-label').textContent = "Dia do Ciclo";
+            document.getElementById('ovulation-card').classList.remove('hidden');
 
-            // Progress circle
-            progress = Math.min((diffDays / avg) * 100, 100);
-            
-            // Ovulation prediction
-            const ovulTime = startDate.getTime() + ((avg - 14) * 24 * 60 * 60 * 1000);
-            const ovulDateObj = new Date(ovulTime);
-            ovulDate = ovulDateObj.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+            if (this.data.cycles.length > 0) {
+                const currentCycle = this.data.cycles[this.data.cycles.length - 1];
+                const startDate = new Date(currentCycle.start);
+                const today = new Date(todayStr); // Normalized
+                const diffDays = Math.round(Math.abs(today - startDate) / (1000 * 60 * 60 * 24)) + 1;
+                
+                cycleDayText = diffDays;
+                
+                const avg = this.data.settings.avgCycleLength;
+                const daysLeft = avg - diffDays;
+                
+                if (this.data.settings.cycleType === 'irregular') predictionText = "Previsão aproximada (Ciclo Irregular)";
+                else if (daysLeft > 0) predictionText = `Próximo em ~${daysLeft} dias`;
+                else if (daysLeft === 0) predictionText = "Esperado para hoje";
+                else predictionText = `${Math.abs(daysLeft)} dias de atraso`;
+
+                progress = Math.min((diffDays / avg) * 100, 100);
+                
+                // Ovulation & Fertility
+                const ovulTime = startDate.getTime() + ((avg - 14) * 24 * 60 * 60 * 1000);
+                const ovulDateObj = new Date(ovulTime);
+                ovulDateText = ovulDateObj.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+
+                const diffToOvul = Math.round((ovulTime - today.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffToOvul === 0) fertilityProb = "Pico (Ovulação)";
+                else if (diffToOvul > 0 && diffToOvul <= 4) fertilityProb = "Alta";
+                else if (diffToOvul < 0 && diffToOvul >= -1) fertilityProb = "Alta";
+                else if (diffToOvul > 4 && diffToOvul <= 7) fertilityProb = "Média";
+                else fertilityProb = "Baixa";
+            }
         }
 
         document.getElementById('home-cycle-day').textContent = cycleDayText;
         document.getElementById('home-prediction').textContent = predictionText;
-        document.getElementById('home-ovulation-date').textContent = ovulDate;
+        document.getElementById('home-ovulation-date').textContent = ovulDateText;
+        document.getElementById('home-fertility-prob').textContent = fertilityProb;
+        document.getElementById('home-fertility-prob').style.color = (fertilityProb.includes("Alta") || fertilityProb.includes("Pico")) ? "var(--fertile-color)" : "inherit";
 
-        // Animate Circle
+        // Circle Animation
         const circle = document.querySelector('.circle-progress');
-        const dashoffset = 283 - (283 * progress) / 100;
-        circle.style.strokeDashoffset = dashoffset;
+        circle.style.strokeDashoffset = 283 - (283 * progress) / 100;
+
+        // Smart Insights Generation
+        this.generateSmartInsights(logToday, fertilityProb);
+    }
+
+    generateSmartInsights(logToday, fertilityProb) {
+        const container = document.getElementById('smart-insights');
+        container.innerHTML = '';
+        
+        if (this.data.settings.mode === 'gravidez') {
+            container.innerHTML = `<div class="card info-card" style="border-left: 4px solid var(--secondary)"><div class="card-text"><p style="font-size:14px">Lembra-te de beber bastante água e tomar as tuas vitaminas pré-natais hoje!</p></div></div>`;
+            return;
+        }
+
+        let insights = [];
+        if (fertilityProb.includes("Alta") || fertilityProb.includes("Pico")) {
+            insights.push(`Estás na tua janela fértil. A probabilidade de engravidar é ${fertilityProb.toLowerCase()}.`);
+        }
+        if (logToday.isPeriod) {
+            insights.push("Dica: Evita cafeína e alimentos muito salgados para ajudar a reduzir a retenção de líquidos e possíveis cólicas.");
+        }
+        
+        // Verifica se bebeu água hoje
+        if (logToday.health && logToday.health.includes('agua')) {
+            insights.push("Ótimo trabalho com a hidratação hoje! 💧");
+        }
+
+        if (insights.length > 0) {
+            insights.slice(0, 2).forEach(ins => {
+                container.innerHTML += `<div class="card info-card" style="border-left: 4px solid var(--primary-light)"><div class="card-text"><p style="font-size:14px">${ins}</p></div></div>`;
+            });
+        }
     }
 
     renderCalendar() {
@@ -300,102 +455,131 @@ class FlorApp {
         
         const year = this.selectedDate.getFullYear();
         const month = this.selectedDate.getMonth();
-        
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         monthYearDisplay.textContent = `${monthNames[month]} ${year}`;
         
         grid.innerHTML = '';
-        
-        const firstDay = new Date(year, month, 1).getDay(); // 0 = Domingo
+        const fragment = document.createDocumentFragment();
+        const firstDay = new Date(year, month, 1).getDay(); 
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const todayStr = this.formatDate(new Date());
 
-        // Prediction calculations for display
-        let nextPeriodStart = null;
-        let fertileStart = null;
-        let fertileEnd = null;
-        let ovulationDateStr = null;
+        let fertileStart = null, fertileEnd = null, ovulationDateStr = null;
 
-        if (this.data.cycles.length > 0) {
+        if (this.data.cycles.length > 0 && this.data.settings.mode !== 'gravidez') {
             const currentCycle = this.data.cycles[this.data.cycles.length - 1];
             const startDate = new Date(currentCycle.start);
             const avg = this.data.settings.avgCycleLength;
             
-            nextPeriodStart = new Date(startDate.getTime() + (avg * 24 * 60 * 60 * 1000));
             const ovulation = new Date(startDate.getTime() + ((avg - 14) * 24 * 60 * 60 * 1000));
             ovulationDateStr = this.formatDate(ovulation);
-            
             fertileStart = new Date(ovulation.getTime() - (4 * 24 * 60 * 60 * 1000));
             fertileEnd = new Date(ovulation.getTime() + (1 * 24 * 60 * 60 * 1000));
         }
 
-        const fragment = document.createDocumentFragment();
-
-        // Empty cells
         for (let i = 0; i < firstDay; i++) {
             const emptyDiv = document.createElement('div');
             emptyDiv.className = 'day-cell empty';
             fragment.appendChild(emptyDiv);
         }
 
-        // Days
         for (let i = 1; i <= daysInMonth; i++) {
             const date = new Date(year, month, i);
             const dateStr = this.formatDate(date);
+            const log = this.data.logs[dateStr];
             
             let classes = ['day-cell'];
             if (dateStr === todayStr) classes.push('today');
+            if (log?.isPeriod) classes.push('period');
             
-            if (this.data.logs[dateStr]?.isPeriod) {
-                classes.push('period');
+            if (this.data.settings.mode !== 'gravidez') {
+                if (fertileStart && date >= fertileStart && date <= fertileEnd && dateStr !== ovulationDateStr) classes.push('fertile');
+                if (dateStr === ovulationDateStr) classes.push('ovulation');
             }
 
-            // Check predictions
-            if (fertileStart && date >= fertileStart && date <= fertileEnd && dateStr !== ovulationDateStr) {
-                classes.push('fertile');
-            }
-            if (dateStr === ovulationDateStr) {
-                classes.push('ovulation');
-            }
+            if (log?.sex && log.sex.activity && log.sex.activity !== 'nao') classes.push('has-sex');
 
             const dayDiv = document.createElement('div');
             dayDiv.className = classes.join(' ');
             dayDiv.textContent = i;
-            dayDiv.addEventListener('click', () => this.openLogModal(date));
-            
+            dayDiv.addEventListener('click', () => {
+                this.showDaySummary(dateStr, date);
+                this.openLogModal(date);
+            });
             fragment.appendChild(dayDiv);
         }
-        
         grid.appendChild(fragment);
+    }
+
+    showDaySummary(dateStr, date) {
+        const summaryDiv = document.getElementById('calendar-day-summary');
+        const log = this.data.logs[dateStr];
+        const dateFormatted = date.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' });
+        
+        if (!log || Object.keys(log).length === 0) {
+            summaryDiv.innerHTML = `<strong>${dateFormatted}:</strong> Sem registos neste dia.`;
+            return;
+        }
+
+        let parts = [];
+        if (log.isPeriod) parts.push("🩸 Menstruação");
+        if (log.flow && log.flow !== 'nenhum') parts.push(`Fluxo: ${log.flow}`);
+        if (log.symptoms && log.symptoms.length > 0) parts.push(`${log.symptoms.length} sintomas físicos`);
+        if (log.sex && log.sex.activity && log.sex.activity !== 'nao') parts.push("Intimidade");
+        if (log.notes) parts.push("📝 Tem notas no diário");
+
+        summaryDiv.innerHTML = `<strong>${dateFormatted}:</strong> ` + (parts.length > 0 ? parts.join(' • ') : "Registo mínimo.");
     }
 
     updateStats() {
         document.getElementById('stat-avg-cycle').textContent = this.data.settings.avgCycleLength;
         document.getElementById('stat-avg-period').textContent = this.data.settings.avgPeriodLength;
+        
+        // Render simple Bar Chart
+        this.renderCharts();
 
+        // History List
         const historyList = document.getElementById('history-list');
         historyList.innerHTML = '';
-        
-        // Render in reverse order
-        const finished = this.data.cycles.filter(c => c.end).reverse().slice(0, 5); // Últimos 5
+        const finished = this.data.cycles.filter(c => c.end).reverse().slice(0, 5); 
         
         if (finished.length === 0) {
-            historyList.innerHTML = '<li class="history-item"><span style="color:var(--text-muted)">Ainda não há ciclos terminados suficientes.</span></li>';
+            historyList.innerHTML = '<li class="history-item"><span class="text-muted">Ainda não há ciclos terminados suficientes.</span></li>';
             return;
         }
 
         finished.forEach(cycle => {
             const s = new Date(cycle.start).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
             const e = new Date(cycle.end).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
-            
-            const diffTime = Math.abs(new Date(cycle.end) - new Date(cycle.start));
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            const diffDays = Math.round(Math.abs(new Date(cycle.end) - new Date(cycle.start)) / (1000 * 60 * 60 * 24)) + 1;
 
-            historyList.innerHTML += `
-                <li class="history-item">
-                    <span>${s} - ${e}</span>
-                    <strong>${diffDays} dias</strong>
-                </li>
+            historyList.innerHTML += `<li class="history-item"><span>${s} - ${e}</span><strong>${diffDays} dias</strong></li>`;
+        });
+    }
+
+    renderCharts() {
+        const chartContainer = document.getElementById('chart-cycles');
+        chartContainer.innerHTML = '';
+        
+        const finished = this.data.cycles.filter(c => c.end).slice(-6); // Últimos 6
+        if (finished.length === 0) {
+            chartContainer.innerHTML = '<span class="text-muted">Sem dados para gráfico.</span>';
+            return;
+        }
+
+        const maxDays = Math.max(...finished.map(c => Math.round(Math.abs(new Date(c.end) - new Date(c.start)) / (1000 * 60 * 60 * 24)) + 1), 35);
+
+        finished.forEach((cycle, i) => {
+            const diffDays = Math.round(Math.abs(new Date(cycle.end) - new Date(cycle.start)) / (1000 * 60 * 60 * 24)) + 1;
+            const heightPercent = (diffDays / maxDays) * 100;
+            const monthStr = new Date(cycle.start).toLocaleDateString('pt-PT', { month: 'short' });
+            
+            const isLatest = i === finished.length - 1;
+            chartContainer.innerHTML += `
+                <div class="chart-bar-container">
+                    <div class="chart-bar ${isLatest ? 'highlight' : ''}" style="height: ${heightPercent}%"></div>
+                    <span class="chart-label">${monthStr}</span>
+                </div>
             `;
         });
     }
@@ -406,56 +590,77 @@ class FlorApp {
         const dateStr = this.formatDate(date);
         document.getElementById('log-modal-date').textContent = date.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
         
-        // Reset and Load existing
         document.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
         document.getElementById('log-notes').value = '';
 
-        const log = this.data.logs[dateStr];
-        if (log) {
-            if (log.flow) document.querySelector(`#flow-options .pill[data-value="${log.flow}"]`)?.classList.add('selected');
-            if (log.mood) document.querySelector(`#mood-options .pill[data-value="${log.mood}"]`)?.classList.add('selected');
-            if (log.symptoms) {
-                log.symptoms.forEach(symp => {
-                    document.querySelector(`#symptoms-options .pill[data-value="${symp}"]`)?.classList.add('selected');
-                });
-            }
-            if (log.notes) document.getElementById('log-notes').value = log.notes;
+        const log = this.data.logs[dateStr] || {};
+        
+        // Load Fluxo
+        if (log.flow) document.querySelector(`#flow-options .pill[data-value="${log.flow}"]`)?.classList.add('selected');
+        if (log.flowDetails) log.flowDetails.forEach(v => document.querySelector(`#flow-details .pill[data-value="${v}"]`)?.classList.add('selected'));
+        if (log.mucus) document.querySelector(`#mucus-options .pill[data-value="${log.mucus}"]`)?.classList.add('selected');
+
+        // Load Sintomas
+        if (log.symptoms) log.symptoms.forEach(v => document.querySelector(`#symptoms-body .pill[data-value="${v}"]`)?.classList.add('selected'));
+        if (log.moods) log.moods.forEach(v => document.querySelector(`#symptoms-mood .pill[data-value="${v}"]`)?.classList.add('selected'));
+
+        // Load Intimidade
+        if (log.sex) {
+            if (log.sex.activity) document.querySelector(`#sex-activity .pill[data-value="${log.sex.activity}"]`)?.classList.add('selected');
+            if (log.sex.libido) document.querySelector(`#sex-libido .pill[data-value="${log.sex.libido}"]`)?.classList.add('selected');
+            if (log.sex.issues) log.sex.issues.forEach(v => document.querySelector(`#sex-issues .pill[data-value="${v}"]`)?.classList.add('selected'));
         }
 
-        document.getElementById('log-modal').classList.add('open');
-    }
+        // Load Saúde e Diário
+        if (log.health) log.health.forEach(v => document.querySelector(`#health-habits .pill[data-value="${v}"]`)?.classList.add('selected'));
+        if (log.sleep) document.querySelector(`#sleep-options .pill[data-value="${log.sleep}"]`)?.classList.add('selected');
+        if (log.notes) document.getElementById('log-notes').value = log.notes;
 
-    closeLogModal() {
-        document.getElementById('log-modal').classList.remove('open');
+        document.getElementById('log-modal').classList.add('open');
     }
 
     saveDailyLog() {
         const dateStr = this.formatDate(this.selectedDate);
         
+        // Collect single values
         const flow = document.querySelector('#flow-options .pill.selected')?.getAttribute('data-value') || null;
-        const mood = document.querySelector('#mood-options .pill.selected')?.getAttribute('data-value') || null;
-        const symptoms = Array.from(document.querySelectorAll('#symptoms-options .pill.selected')).map(p => p.getAttribute('data-value'));
-        const notes = document.getElementById('log-notes').value;
+        const mucus = document.querySelector('#mucus-options .pill.selected')?.getAttribute('data-value') || null;
+        const sleep = document.querySelector('#sleep-options .pill.selected')?.getAttribute('data-value') || null;
+        const sexActivity = document.querySelector('#sex-activity .pill.selected')?.getAttribute('data-value') || null;
+        const sexLibido = document.querySelector('#sex-libido .pill.selected')?.getAttribute('data-value') || null;
 
-        // Manter isPeriod se já existir
-        const isPeriod = this.data.logs[dateStr]?.isPeriod || (flow && flow !== 'nenhum');
+        // Collect arrays
+        const getMulti = (selector) => Array.from(document.querySelectorAll(`${selector} .pill.selected`)).map(p => p.getAttribute('data-value'));
+        
+        const flowDetails = getMulti('#flow-details');
+        const symptoms = getMulti('#symptoms-body');
+        const moods = getMulti('#symptoms-mood');
+        const sexIssues = getMulti('#sex-issues');
+        const health = getMulti('#health-habits');
+        const notes = document.getElementById('log-notes').value.trim();
+
+        // Check if isPeriod logic applies
+        const isPeriod = this.data.logs[dateStr]?.isPeriod || (flow && flow !== 'nenhum' && flow !== 'spotting');
 
         this.data.logs[dateStr] = {
             ...this.data.logs[dateStr],
-            flow, mood, symptoms, notes, isPeriod
+            isPeriod, flow, flowDetails, mucus,
+            symptoms, moods,
+            sex: { activity: sexActivity, libido: sexLibido, issues: sexIssues },
+            health, sleep, notes
         };
 
         this.recalculateCycles();
         this.saveData();
-        this.closeLogModal();
+        document.getElementById('log-modal').classList.remove('open');
+        this.showToast("Diário guardado em segurança.");
     }
 
-    // --- UTILS ---
     exportData() {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "flor_backup_" + this.formatDate(new Date()) + ".json");
+        downloadAnchorNode.setAttribute("download", "flor_backup_seguro_" + this.formatDate(new Date()) + ".json");
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
@@ -463,42 +668,23 @@ class FlorApp {
 
     registerServiceWorker() {
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').then(reg => {
-                    console.log('SW registado com sucesso!', reg.scope);
-                }).catch(err => {
-                    console.error('Falha ao registar SW', err);
-                });
-            });
-
-            // Lógica de PWA Install Prompt
+            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW Error', err)));
+            
             let deferredPrompt;
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
                 const toast = document.getElementById('install-toast');
                 toast.classList.remove('hidden');
-
                 document.getElementById('btn-install').addEventListener('click', () => {
                     toast.classList.add('hidden');
                     deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') {
-                            console.log('App instalada');
-                        }
-                        deferredPrompt = null;
-                    });
+                    deferredPrompt = null;
                 });
             });
-
-            document.getElementById('btn-install-close').addEventListener('click', () => {
-                document.getElementById('install-toast').classList.add('hidden');
-            });
+            document.getElementById('btn-install-close').addEventListener('click', () => document.getElementById('install-toast').classList.add('hidden'));
         }
     }
 }
 
-// Iniciar a aplicação
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new FlorApp();
-});
+document.addEventListener('DOMContentLoaded', () => { window.app = new FlorApp(); });
