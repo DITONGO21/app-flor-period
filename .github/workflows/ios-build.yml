@@ -29,6 +29,12 @@ jobs:
     - name: Sync Capacitor
       run: npx cap sync ios
 
+    - name: Resolve Swift Package Dependencies
+      run: |
+        xcodebuild -resolvePackageDependencies \
+                   -project ios/App/App.xcodeproj \
+                   -scheme App
+
     - name: Build Xcode Project (Simulator / No Signing Required)
       run: |
         xcodebuild -project ios/App/App.xcodeproj \
@@ -39,4 +45,4 @@ jobs:
                    CODE_SIGNING_ALLOWED=NO \
                    CODE_SIGNING_REQUIRED=NO \
                    CODE_SIGN_IDENTITY="" \
-                   clean build
+                   build
