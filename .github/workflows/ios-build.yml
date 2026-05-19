@@ -1,0 +1,41 @@
+name: Build iOS (PWA & Native)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Run Web Build
+      run: npm run build
+
+    - name: Sync Capacitor
+      run: npx cap sync ios
+
+    - name: Build Xcode Project (Simulator / No Signing Required)
+      run: |
+        xcodebuild -workspace ios/App/App.xcworkspace \
+                   -scheme App \
+                   -sdk iphonesimulator \
+                   -configuration Debug \
+                   CODE_SIGNING_ALLOWED=NO \
+                   CODE_SIGNING_REQUIRED=NO \
+                   CODE_SIGN_IDENTITY="" \
+                   clean build
