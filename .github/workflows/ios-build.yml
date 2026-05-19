@@ -34,8 +34,9 @@ jobs:
         xcodebuild -project ios/App/App.xcodeproj \
                    -scheme App \
                    -sdk iphonesimulator \
+                   -destination "generic/platform=iOS Simulator" \
                    -configuration Debug \
                    CODE_SIGNING_ALLOWED=NO \
                    CODE_SIGNING_REQUIRED=NO \
-                   CODE_SIGNING_IDENTITY="" \
+                   CODE_SIGN_IDENTITY="" \
                    clean build
