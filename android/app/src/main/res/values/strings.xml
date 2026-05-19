@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Flor</string>
+    <string name="title_activity_main">Flor</string>
+    <string name="package_name">pt.ditongo.flor</string>
+    <string name="custom_url_scheme">pt.ditongo.flor</string>
+</resources>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-PT" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Flor — Período & Bem-Estar</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#c2547a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icons/icon-152.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- ONBOARDING SCREEN -->
+    <div id="onboarding-screen" class="hidden">
+        <div class="onboarding-content">
+            <h1 class="logo mb-12" style="font-size: 48px; justify-content: center;">Flor 🌸</h1>
+            <h2 class="mb-12">O teu espaço seguro & privado</h2>
+            <p class="text-muted mb-24" style="font-size: 16px;">Acompanha o teu ciclo, prevê fertilidade e cuida do teu bem-estar de forma 100% privada e offline.</p>
+            <button id="btn-start-app" class="primary-btn pulse">Começar Viagem</button>
+            <p class="privacy-note mt-24" style="font-size: 11px;">Ao continuar, aceitas que todos os teus dados permaneçam encriptados e guardados exclusivamente no teu telemóvel.</p>
+        </div>
+    </div>
+
+    <!-- PIN LOCK SCREEN -->
+    <div id="pin-screen" class="hidden">
+        <div class="pin-container">
+            <h2>Flor 🌸</h2>
+            <p>Introduz o teu PIN</p>
+            <div class="pin-dots">
+                <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+            <div class="pin-pad">
+                <button class="pin-btn">1</button><button class="pin-btn">2</button><button class="pin-btn">3</button>
+                <button class="pin-btn">4</button><button class="pin-btn">5</button><button class="pin-btn">6</button>
+                <button class="pin-btn">7</button><button class="pin-btn">8</button><button class="pin-btn">9</button>
+                <button class="pin-btn action" id="pin-clear">C</button><button class="pin-btn">0</button><button class="pin-btn action" id="pin-delete">&larr;</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app">
+        <!-- HEADER -->
+        <header class="app-header">
+            <h1 class="logo">Flor <span id="mode-badge" class="badge hidden"></span></h1>
+            <div class="header-actions">
+                <button id="btn-educ" class="icon-btn" aria-label="Aprender"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg></button>
+                <button id="btn-discreet" class="icon-btn" aria-label="Modo Discreto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+            </div>
+        </header>
+
+        <main class="content">
+            <!-- HOME VIEW -->
+            <section id="view-home" class="view active">
+                
+                <!-- CYCLE DASHBOARD (Padrão) -->
+                <div id="cycle-dashboard">
+                    <div class="cycle-circle-container">
+                        <svg class="cycle-circle" viewBox="0 0 100 100">
+                            <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="circle-progress" id="cycle-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="100"></circle>
+                        </svg>
+                        <div class="circle-content">
+                            <span class="day-label" id="home-day-label">Dia do Ciclo</span>
+                            <h2 class="day-number" id="home-cycle-day">--</h2>
+                            <p class="prediction-text" id="home-prediction">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <div class="action-cards">
+                        <button class="primary-btn pulse" id="btn-log-period">Registar Período</button>
+                        <button class="secondary-btn" id="btn-log-symptoms">Registo Completo de Hoje</button>
+                    </div>
+                </div>
+
+                <!-- PREGNANCY DASHBOARD -->
+                <div id="pregnancy-dashboard" class="hidden">
+                    <div class="cycle-circle-container">
+                        <svg class="cycle-circle" viewBox="0 0 100 100">
+                            <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="circle-progress" id="preg-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="100"></circle>
+                        </svg>
+                        <div class="circle-content">
+                            <span class="day-label">Semana de Gravidez</span>
+                            <h2 class="day-number" id="preg-week">--</h2>
+                            <p class="prediction-text" id="preg-days-left">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <div class="action-cards">
+                        <button class="primary-btn pulse" id="btn-log-preg-symptoms">Registar Sintomas de Hoje</button>
+                    </div>
+
+                    <div class="info-cards">
+                        <div class="card info-card">
+                            <div class="card-icon" style="background: rgba(255, 140, 66, 0.2); color: var(--accent);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
+                            </div>
+                            <div class="card-text">
+                                <h3>Tamanho do Bebé (Aprox.)</h3>
+                                <p id="preg-baby-size">--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INSIGHTS INTELIGENTES -->
+                <div id="smart-insights" class="insights-container">
+                    <!-- Gerado via JS (Ex: Janela Fértil, Dicas de Água) -->
+                </div>
+
+                <div class="info-cards" id="fertility-cards">
+                    <div class="card info-card">
+                        <div class="card-icon ovul">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                        </div>
+                        <div class="card-text">
+                            <h3>Probabilidade de Gravidez</h3>
+                            <p id="home-fertility-prob">Baixa</p>
+                        </div>
+                    </div>
+                    <div class="card info-card" id="ovulation-card">
+                        <div class="card-icon ovul">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        </div>
+                        <div class="card-text">
+                            <h3>Próxima Ovulação</h3>
+                            <p id="home-ovulation-date">--</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CALENDAR VIEW -->
+            <section id="view-calendar" class="view">
+                <div class="calendar-header">
+                    <button id="prev-month" class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                    <h2 id="month-year-display">Mês Ano</h2>
+                    <button id="next-month" class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button>
+                </div>
+                <div class="calendar-grid-header">
+                    <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                </div>
+                <div class="calendar-grid" id="calendar-days"></div>
+                <div class="legend">
+                    <div class="legend-item"><span class="dot dot-period"></span> Período</div>
+                    <div class="legend-item"><span class="dot dot-fertile"></span> Fértil</div>
+                    <div class="legend-item"><span class="dot dot-ovulation"></span> Ovulação</div>
+                    <div class="legend-item"><span class="dot dot-sex"></span> Intimidade</div>
+                </div>
+                <div class="card mt-24">
+                    <h3 class="mb-12">O que aconteceu neste dia?</h3>
+                    <div id="calendar-day-summary" class="text-muted empty-state">
+                        <svg style="width: 40px; margin: 10px auto; display: block; opacity: 0.5;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        <p style="text-align: center;">Seleciona um dia para ver o teu diário íntimo.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STATS VIEW -->
+            <section id="view-stats" class="view">
+                <h2 class="view-title">Dashboard Analítico</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-avg-cycle">28</span>
+                        <span class="stat-label">Dias</span>
+                        <span class="stat-desc">Duração Média do Ciclo</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-avg-period">5</span>
+                        <span class="stat-label">Dias</span>
+                        <span class="stat-desc">Menstruação Média</span>
+                    </div>
+                </div>
+
+                <div class="card mt-16">
+                    <h3>Gráfico de Duração dos Ciclos</h3>
+                    <div class="bar-chart" id="chart-cycles">
+                        <!-- Bars geradas por JS -->
+                    </div>
+                </div>
+
+                <div class="card mt-16 history-list">
+                    <h3>Histórico Recente</h3>
+                    <ul id="history-list"></ul>
+                </div>
+            </section>
+
+            <!-- SETTINGS VIEW -->
+            <section id="view-settings" class="view">
+                <h2 class="view-title">O Meu Perfil</h2>
+                
+                <div class="settings-group card">
+                    <h3>Modo da Aplicação</h3>
+                    <div class="setting-item">
+                        <span>Modo Atual</span>
+                        <select id="app-mode" class="settings-input">
+                            <option value="padrao">Padrão</option>
+                            <option value="gravidez">Modo Gravidez</option>
+                            <option value="adolescente">Modo Adolescente</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-group card" id="settings-cycle-group">
+                    <h3>Ciclo Menstrual</h3>
+                    <div class="setting-item">
+                        <span>Tipo de Ciclo</span>
+                        <select id="cycle-type" class="settings-input">
+                            <option value="regular">Regular</option>
+                            <option value="irregular">Irregular</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <span>Duração do Ciclo</span>
+                        <input type="number" id="cycle-length-input" class="settings-input" min="15" max="90">
+                    </div>
+                    <div class="setting-item">
+                        <span>Menstruação</span>
+                        <input type="number" id="period-length-input" class="settings-input" min="1" max="15">
+                    </div>
+                </div>
+
+                <div class="settings-group card hidden" id="settings-pregnancy-group">
+                    <h3>Dados da Gravidez</h3>
+                    <div class="setting-item">
+                        <span>Data Prevista do Parto</span>
+                        <input type="date" id="preg-due-date" class="settings-input">
+                    </div>
+                </div>
+
+                <div class="settings-group card">
+                    <h3>Privacidade & Estilo</h3>
+                    <div class="setting-item">
+                        <span>Tema Escuro</span>
+                        <label class="switch"><input type="checkbox" id="theme-toggle" checked><span class="slider round"></span></label>
+                    </div>
+                    <div class="setting-item">
+                        <span>Código PIN <small>(Segurança)</small></span>
+                        <button id="btn-setup-pin" class="secondary-btn small">Configurar</button>
+                    </div>
+                </div>
+
+                <div class="settings-group card">
+                    <button class="btn-text" id="btn-export">Exportar Backup Local</button>
+                    <button class="btn-text" id="btn-import">Importar Backup</button>
+                    <input type="file" id="file-import" class="hidden" accept=".json">
+                    <button class="btn-text danger" id="btn-delete-data">Apagar Todos os Dados</button>
+                </div>
+                
+                <p class="privacy-note">A Flor é 100% privada e offline. Não há publicidade, tracking, nem dados na nuvem.</p>
+            </section>
+        </main>
+
+        <!-- BOTTOM NAV -->
+        <nav class="bottom-nav" aria-label="Navegação">
+            <button class="nav-item active" data-target="view-home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg><span>Hoje</span></button>
+            <button class="nav-item" data-target="view-calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg><span>Calendário</span></button>
+            <button class="nav-item" data-target="view-stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg><span>Análise</span></button>
+            <button class="nav-item" data-target="view-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span>Definições</span></button>
+        </nav>
+
+        <!-- MEGA MODAL DE REGISTO DIÁRIO -->
+        <div id="log-modal" class="modal">
+            <div class="modal-content card">
+                <div class="modal-header">
+                    <h3 id="log-modal-date">Data</h3>
+                    <button class="close-btn" id="close-modal">&times;</button>
+                </div>
+                
+                <div class="modal-tabs">
+                    <button class="modal-tab active" data-tab="tab-sangue">Fluxo</button>
+                    <button class="modal-tab" data-tab="tab-corpo">Sintomas</button>
+                    <button class="modal-tab" data-tab="tab-intimo">Intimidade</button>
+                    <button class="modal-tab" data-tab="tab-saude">Bem-Estar</button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- FLUXO -->
+                    <div id="tab-sangue" class="tab-pane active">
+                        <div class="log-section">
+                            <h4>Intensidade</h4>
+                            <div class="pill-group" id="flow-options">
+                                <button class="pill" data-value="nenhum">Nenhum</button>
+                                <button class="pill" data-value="leve">Leve</button>
+                                <button class="pill" data-value="medio">Médio</button>
+                                <button class="pill" data-value="intenso">Intenso</button>
+                                <button class="pill" data-value="spotting">Spotting</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Detalhes</h4>
+                            <div class="pill-group multi" id="flow-details">
+                                <button class="pill" data-value="coagulos">Coágulos</button>
+                                <button class="pill" data-value="cor-rosada">Cor Rosada</button>
+                                <button class="pill" data-value="cor-escura">Cor Escura</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Muco Cervical</h4>
+                            <div class="pill-group" id="mucus-options">
+                                <button class="pill" data-value="seco">Seco</button>
+                                <button class="pill" data-value="pegajoso">Pegajoso</button>
+                                <button class="pill" data-value="cremoso">Cremoso</button>
+                                <button class="pill" data-value="clara-ovo">Clara de Ovo (Fértil)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SINTOMAS & CORPO -->
+                    <div id="tab-corpo" class="tab-pane">
+                        <div class="log-section">
+                            <h4>Dores e Corpo</h4>
+                            <div class="pill-group multi" id="symptoms-body">
+                                <button class="pill" data-value="colicas">Cólicas</button>
+                                <button class="pill" data-value="dor-lombar">Dor Lombar</button>
+                                <button class="pill" data-value="dor-cabeca">Dor de Cabeça</button>
+                                <button class="pill" data-value="seios-sensiveis">Seios Sensíveis</button>
+                                <button class="pill" data-value="acne">Acne</button>
+                                <button class="pill" data-value="inchaco">Inchaço</button>
+                                <button class="pill" data-value="nausea">Náusea</button>
+                                <button class="pill" data-value="tonturas">Tonturas</button>
+                                <button class="pill" data-value="desejos">Desejos Alimentares</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Humor e Mente</h4>
+                            <div class="pill-group multi" id="symptoms-mood">
+                                <button class="pill" data-value="feliz">Feliz / Calma</button>
+                                <button class="pill" data-value="sensivel">Sensível</button>
+                                <button class="pill" data-value="triste">Triste / Choro</button>
+                                <button class="pill" data-value="irritada">Irritada</button>
+                                <button class="pill" data-value="ansiedade">Ansiedade</button>
+                                <button class="pill" data-value="stress">Stress</button>
+                                <button class="pill" data-value="fadiga">Fadiga</button>
+                                <button class="pill" data-value="energia">Muita Energia</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- INTIMIDADE -->
+                    <div id="tab-intimo" class="tab-pane">
+                        <div class="log-section">
+                            <h4>Atividade Sexual</h4>
+                            <div class="pill-group" id="sex-activity">
+                                <button class="pill" data-value="nao">Não</button>
+                                <button class="pill" data-value="protegida">Protegida</button>
+                                <button class="pill" data-value="nao-protegida">Não Protegida</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Líbido</h4>
+                            <div class="pill-group" id="sex-libido">
+                                <button class="pill" data-value="baixa">Baixa</button>
+                                <button class="pill" data-value="normal">Normal</button>
+                                <button class="pill" data-value="alta">Alta</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Desconforto</h4>
+                            <div class="pill-group multi" id="sex-issues">
+                                <button class="pill" data-value="dor">Dor durante relação</button>
+                                <button class="pill" data-value="secura">Secura</button>
+                                <button class="pill" data-value="sangramento">Sangramento (Spotting)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SAÚDE E DIÁRIO -->
+                    <div id="tab-saude" class="tab-pane">
+                        <div class="log-section">
+                            <h4>Bem-Estar Físico</h4>
+                            <div class="pill-group multi" id="health-habits">
+                                <button class="pill" data-value="exercicio">Fiz Exercício</button>
+                                <button class="pill" data-value="agua">Bebi Água (2L)</button>
+                                <button class="pill" data-value="medicacao">Tomei Medicação</button>
+                                <button class="pill" data-value="vitamina">Vitaminas</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Métricas Corporais</h4>
+                            <div class="metrics-group">
+                                <div class="metric-input">
+                                    <label for="log-temp">Temperatura Basal (°C)</label>
+                                    <input type="number" step="0.1" id="log-temp" placeholder="Ex: 36.5" class="settings-input">
+                                </div>
+                                <div class="metric-input">
+                                    <label for="log-weight">Peso (kg)</label>
+                                    <input type="number" step="0.1" id="log-weight" placeholder="Ex: 60.5" class="settings-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Qualidade do Sono</h4>
+                            <div class="pill-group" id="sleep-options">
+                                <button class="pill" data-value="mau">Mau</button>
+                                <button class="pill" data-value="normal">Normal</button>
+                                <button class="pill" data-value="bom">Bom</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Diário Pessoal (Privado)</h4>
+                            <textarea id="log-notes" placeholder="Desabafa ou anota algo importante..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="primary-btn" id="save-log">Guardar no Diário</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDU MODAL -->
+        <div id="edu-modal" class="modal">
+            <div class="modal-content card">
+                <div class="modal-header">
+                    <h3>Aprender 📚</h3>
+                    <button class="close-btn" id="close-edu-modal">&times;</button>
+                </div>
+                <div class="modal-body text-muted">
+                    <h4 class="mb-12">Fases do Ciclo</h4>
+                    <p class="mb-12"><strong>Menstruação (Dias 1-5):</strong> Descamação do endométrio.</p>
+                    <p class="mb-12"><strong>Fase Folicular (Dias 1-13):</strong> O corpo prepara-se para libertar um óvulo. Energia costuma subir.</p>
+                    <p class="mb-12"><strong>Ovulação (Dia 14):</strong> A altura de maior fertilidade e líbido.</p>
+                    <p class="mb-12"><strong>Fase Lútea (Dias 15-28):</strong> Prepara o corpo para possível gravidez. Possível TPM (Tensão Pré-Menstrual).</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TOASTS -->
+    <div id="toast-msg" class="toast hidden">Mensagem aqui</div>
+    <div id="install-toast" class="toast hidden">
+        <p>Instala a Flor para uso offline.</p>
+        <button id="btn-install" class="secondary-btn small">Instalar</button>
+        <button id="btn-install-close" class="icon-btn">&times;</button>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
