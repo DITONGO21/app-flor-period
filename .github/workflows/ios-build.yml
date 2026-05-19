@@ -33,8 +33,7 @@ jobs:
       run: |
         xcodebuild -resolvePackageDependencies \
                    -project ios/App/App.xcodeproj \
-                   -scheme App \
-                   -derivedDataPath build
+                   -scheme App
 
     - name: Build Xcode Project (Simulator / No Signing Required)
       run: |
@@ -43,7 +42,6 @@ jobs:
                    -sdk iphonesimulator \
                    -destination "generic/platform=iOS Simulator" \
                    -configuration Debug \
-                   -derivedDataPath build \
                    CODE_SIGNING_ALLOWED=NO \
                    CODE_SIGNING_REQUIRED=NO \
                    CODE_SIGN_IDENTITY="" \
