@@ -28,7 +28,15 @@ class FlorApp {
         try {
             const saved = localStorage.getItem('flor_data_v2');
             if (saved) return JSON.parse(saved);
-            
+        } catch (e) {
+            console.warn('Erro ao carregar dados, a tentar backup...', e);
+            try {
+                const backup = localStorage.getItem('flor_data_v2_backup');
+                if (backup) return JSON.parse(backup);
+            } catch (err) {}
+        }
+        
+        try {
             // Migração da v1 para v2
             const oldSaved = localStorage.getItem('flor_data');
             if (oldSaved) {
@@ -36,18 +44,19 @@ class FlorApp {
                 parsed.settings.mode = 'padrao';
                 parsed.settings.pin = null;
                 localStorage.setItem('flor_data_v2', JSON.stringify(parsed));
+                localStorage.setItem('flor_data_v2_backup', JSON.stringify(parsed));
                 return parsed;
             }
-            return defaultData;
-        } catch (e) {
-            console.warn('Erro ao carregar dados:', e);
-            return defaultData;
-        }
+        } catch(e) {}
+        
+        return defaultData;
     }
 
     saveData() {
         try {
-            localStorage.setItem('flor_data_v2', JSON.stringify(this.data));
+            const dataStr = JSON.stringify(this.data);
+            localStorage.setItem('flor_data_v2', dataStr);
+            localStorage.setItem('flor_data_v2_backup', dataStr); // Anti-corruption backup
             if (this.isAuthenticated) this.updateViews();
         } catch (e) {
             this.showToast('Erro ao guardar dados. Espaço cheio?');
@@ -55,7 +64,17 @@ class FlorApp {
     }
 
     formatDate(date) {
-        return date.toISOString().split('T')[0];
+        // Correção de bugs de timezone (meia-noite)
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    vibrate(pattern = 10) {
+        if (navigator.vibrate) {
+            try { navigator.vibrate(pattern); } catch(e) {}
+        }
     }
 
     showToast(msg) {
@@ -134,6 +153,7 @@ class FlorApp {
 
         navItems.forEach(item => {
             item.addEventListener('click', () => {
+                this.vibrate(10);
                 navItems.forEach(nav => nav.classList.remove('active'));
                 item.classList.add('active');
 
@@ -212,21 +232,23 @@ class FlorApp {
 
         // Home Buttons
         document.getElementById('btn-log-period').addEventListener('click', () => {
+            this.vibrate(15);
             this.togglePeriod(this.formatDate(new Date()));
         });
-        document.getElementById('btn-log-symptoms').addEventListener('click', () => this.openLogModal(new Date()));
+        document.getElementById('btn-log-symptoms').addEventListener('click', () => { this.vibrate(10); this.openLogModal(new Date()); });
         
         const btnPregSymptoms = document.getElementById('btn-log-preg-symptoms');
-        if (btnPregSymptoms) btnPregSymptoms.addEventListener('click', () => this.openLogModal(new Date()));
+        if (btnPregSymptoms) btnPregSymptoms.addEventListener('click', () => { this.vibrate(10); this.openLogModal(new Date()); });
         
         // Modals
-        document.getElementById('close-modal').addEventListener('click', () => document.getElementById('log-modal').classList.remove('open'));
-        document.getElementById('btn-educ').addEventListener('click', () => this.openEduModal());
-        document.getElementById('close-edu-modal').addEventListener('click', () => document.getElementById('edu-modal').classList.remove('open'));
+        document.getElementById('close-modal').addEventListener('click', () => { this.vibrate(5); document.getElementById('log-modal').classList.remove('open'); });
+        document.getElementById('btn-educ').addEventListener('click', () => { this.vibrate(10); this.openEduModal(); });
+        document.getElementById('close-edu-modal').addEventListener('click', () => { this.vibrate(5); document.getElementById('edu-modal').classList.remove('open'); });
         
         // Pills Logic
         document.querySelectorAll('.pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
+                this.vibrate(5);
                 const isMulti = e.target.parentElement.classList.contains('multi');
                 if (!isMulti) {
                     const isSelected = e.target.classList.contains('selected');
