@@ -31,11 +31,11 @@ jobs:
 
     - name: Build Xcode Project (Simulator / No Signing Required)
       run: |
-        xcodebuild -workspace ios/App/App.xcworkspace \
+        xcodebuild -project ios/App/App.xcodeproj \
                    -scheme App \
                    -sdk iphonesimulator \
                    -configuration Debug \
                    CODE_SIGNING_ALLOWED=NO \
                    CODE_SIGNING_REQUIRED=NO \
-                   CODE_SIGN_IDENTITY="" \
+                   CODE_SIGNING_IDENTITY="" \
                    clean build
