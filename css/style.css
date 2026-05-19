@@ -214,3 +214,12 @@ textarea:focus { outline: none; border-color: var(--primary); }
 
 .toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); background: var(--card-bg); color: var(--text-main); padding: 12px 20px; border-radius: 100px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-md); z-index: 1000; border: 1px solid var(--border); transition: var(--transition); font-size: 14px; font-weight: 500; }
 .toast.hidden { opacity: 0; transform: translate(-50%, -20px); pointer-events: none; }
+
+.metrics-group { display: flex; gap: 16px; margin-top: 8px; }
+.metric-input { display: flex; flex-direction: column; flex: 1; gap: 8px; }
+.metric-input label { font-size: 14px; color: var(--text-muted); }
+.metric-input input { width: 100%; text-align: left; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-main); padding: 12px; border-radius: 12px; font-size: 16px; outline: none; transition: var(--transition); }
+.metric-input input:focus { border-color: var(--primary); }
+
+.skeleton { background: linear-gradient(90deg, var(--card-bg) 25%, var(--border) 50%, var(--card-bg) 75%); background-size: 200% 100%; animation: skeletonLoading 1.5s infinite; border-radius: 8px; color: transparent !important; pointer-events: none; }
+@keyframes skeletonLoading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }

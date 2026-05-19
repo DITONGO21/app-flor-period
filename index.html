@@ -45,21 +45,56 @@
         <main class="content">
             <!-- HOME VIEW -->
             <section id="view-home" class="view active">
-                <div class="cycle-circle-container">
-                    <svg class="cycle-circle" viewBox="0 0 100 100">
-                        <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
-                        <circle class="circle-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="100"></circle>
-                    </svg>
-                    <div class="circle-content">
-                        <span class="day-label" id="home-day-label">Dia do Ciclo</span>
-                        <h2 class="day-number" id="home-cycle-day">--</h2>
-                        <p class="prediction-text" id="home-prediction">A carregar...</p>
+                
+                <!-- CYCLE DASHBOARD (Padrão) -->
+                <div id="cycle-dashboard">
+                    <div class="cycle-circle-container">
+                        <svg class="cycle-circle" viewBox="0 0 100 100">
+                            <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="circle-progress" id="cycle-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="100"></circle>
+                        </svg>
+                        <div class="circle-content">
+                            <span class="day-label" id="home-day-label">Dia do Ciclo</span>
+                            <h2 class="day-number" id="home-cycle-day">--</h2>
+                            <p class="prediction-text" id="home-prediction">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <div class="action-cards">
+                        <button class="primary-btn pulse" id="btn-log-period">Registar Período</button>
+                        <button class="secondary-btn" id="btn-log-symptoms">Registo Completo de Hoje</button>
                     </div>
                 </div>
 
-                <div class="action-cards">
-                    <button class="primary-btn pulse" id="btn-log-period">Registar Período</button>
-                    <button class="secondary-btn" id="btn-log-symptoms">Registo Completo de Hoje</button>
+                <!-- PREGNANCY DASHBOARD -->
+                <div id="pregnancy-dashboard" class="hidden">
+                    <div class="cycle-circle-container">
+                        <svg class="cycle-circle" viewBox="0 0 100 100">
+                            <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="circle-progress" id="preg-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="100"></circle>
+                        </svg>
+                        <div class="circle-content">
+                            <span class="day-label">Semana de Gravidez</span>
+                            <h2 class="day-number" id="preg-week">--</h2>
+                            <p class="prediction-text" id="preg-days-left">A carregar...</p>
+                        </div>
+                    </div>
+
+                    <div class="action-cards">
+                        <button class="primary-btn pulse" id="btn-log-preg-symptoms">Registar Sintomas de Hoje</button>
+                    </div>
+
+                    <div class="info-cards">
+                        <div class="card info-card">
+                            <div class="card-icon" style="background: rgba(255, 140, 66, 0.2); color: var(--accent);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
+                            </div>
+                            <div class="card-text">
+                                <h3>Tamanho do Bebé (Aprox.)</h3>
+                                <p id="preg-baby-size">--</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- INSIGHTS INTELIGENTES -->
@@ -67,7 +102,7 @@
                     <!-- Gerado via JS (Ex: Janela Fértil, Dicas de Água) -->
                 </div>
 
-                <div class="info-cards">
+                <div class="info-cards" id="fertility-cards">
                     <div class="card info-card">
                         <div class="card-icon ovul">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
@@ -157,7 +192,7 @@
                     </div>
                 </div>
 
-                <div class="settings-group card">
+                <div class="settings-group card" id="settings-cycle-group">
                     <h3>Ciclo Menstrual</h3>
                     <div class="setting-item">
                         <span>Tipo de Ciclo</span>
@@ -173,6 +208,14 @@
                     <div class="setting-item">
                         <span>Menstruação</span>
                         <input type="number" id="period-length-input" class="settings-input" min="1" max="15">
+                    </div>
+                </div>
+
+                <div class="settings-group card hidden" id="settings-pregnancy-group">
+                    <h3>Dados da Gravidez</h3>
+                    <div class="setting-item">
+                        <span>Data Prevista do Parto</span>
+                        <input type="date" id="preg-due-date" class="settings-input">
                     </div>
                 </div>
 
@@ -266,6 +309,8 @@
                                 <button class="pill" data-value="acne">Acne</button>
                                 <button class="pill" data-value="inchaco">Inchaço</button>
                                 <button class="pill" data-value="nausea">Náusea</button>
+                                <button class="pill" data-value="tonturas">Tonturas</button>
+                                <button class="pill" data-value="desejos">Desejos Alimentares</button>
                             </div>
                         </div>
                         <div class="log-section">
@@ -320,6 +365,19 @@
                                 <button class="pill" data-value="agua">Bebi Água (2L)</button>
                                 <button class="pill" data-value="medicacao">Tomei Medicação</button>
                                 <button class="pill" data-value="vitamina">Vitaminas</button>
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Métricas Corporais</h4>
+                            <div class="metrics-group">
+                                <div class="metric-input">
+                                    <label>Temperatura Basal (°C)</label>
+                                    <input type="number" step="0.1" id="log-temp" placeholder="Ex: 36.5" class="settings-input">
+                                </div>
+                                <div class="metric-input">
+                                    <label>Peso (kg)</label>
+                                    <input type="number" step="0.1" id="log-weight" placeholder="Ex: 60.5" class="settings-input">
+                                </div>
                             </div>
                         </div>
                         <div class="log-section">

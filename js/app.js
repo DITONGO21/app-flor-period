@@ -81,6 +81,10 @@ class FlorApp {
         this.applyTheme();
         this.updateViews();
         this.registerServiceWorker();
+        
+        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            setTimeout(() => Notification.requestPermission(), 5000);
+        }
     }
 
     setupPinScreen() {
@@ -173,20 +177,25 @@ class FlorApp {
         modeSelect.addEventListener('change', (e) => {
             this.data.settings.mode = e.target.value;
             this.saveData();
+            this.applyTheme();
+            this.updateViews();
         });
 
         // Cycle Settings
         const cycleTypeSelect = document.getElementById('cycle-type');
         const cycleLengthInput = document.getElementById('cycle-length-input');
         const periodLengthInput = document.getElementById('period-length-input');
+        const pregDueDateInput = document.getElementById('preg-due-date');
 
         cycleTypeSelect.value = this.data.settings.cycleType || 'regular';
         cycleLengthInput.value = this.data.settings.avgCycleLength;
         periodLengthInput.value = this.data.settings.avgPeriodLength;
+        if(this.data.settings.pregDueDate) pregDueDateInput.value = this.data.settings.pregDueDate;
 
         cycleTypeSelect.addEventListener('change', (e) => { this.data.settings.cycleType = e.target.value; this.saveData(); });
         cycleLengthInput.addEventListener('change', (e) => { this.data.settings.avgCycleLength = parseInt(e.target.value) || 28; this.saveData(); });
         periodLengthInput.addEventListener('change', (e) => { this.data.settings.avgPeriodLength = parseInt(e.target.value) || 5; this.saveData(); });
+        if(pregDueDateInput) pregDueDateInput.addEventListener('change', (e) => { this.data.settings.pregDueDate = e.target.value; this.saveData(); this.updateViews(); });
 
         // PIN Setup
         document.getElementById('btn-setup-pin').addEventListener('click', () => {
@@ -207,9 +216,12 @@ class FlorApp {
         });
         document.getElementById('btn-log-symptoms').addEventListener('click', () => this.openLogModal(new Date()));
         
+        const btnPregSymptoms = document.getElementById('btn-log-preg-symptoms');
+        if (btnPregSymptoms) btnPregSymptoms.addEventListener('click', () => this.openLogModal(new Date()));
+        
         // Modals
         document.getElementById('close-modal').addEventListener('click', () => document.getElementById('log-modal').classList.remove('open'));
-        document.getElementById('btn-educ').addEventListener('click', () => document.getElementById('edu-modal').classList.add('open'));
+        document.getElementById('btn-educ').addEventListener('click', () => this.openEduModal());
         document.getElementById('close-edu-modal').addEventListener('click', () => document.getElementById('edu-modal').classList.remove('open'));
         
         // Pills Logic
@@ -231,6 +243,22 @@ class FlorApp {
         // Calendar Nav
         document.getElementById('prev-month').addEventListener('click', () => { this.selectedDate.setMonth(this.selectedDate.getMonth() - 1); this.renderCalendar(); });
         document.getElementById('next-month').addEventListener('click', () => { this.selectedDate.setMonth(this.selectedDate.getMonth() + 1); this.renderCalendar(); });
+        
+        // Touch Gestures for Calendar
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const calView = document.getElementById('view-calendar');
+        if(calView) {
+            calView.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+            calView.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                if (touchStartX - touchEndX > 50) { // Swipe Left
+                    this.selectedDate.setMonth(this.selectedDate.getMonth() + 1); this.renderCalendar();
+                } else if (touchEndX - touchStartX > 50) { // Swipe Right
+                    this.selectedDate.setMonth(this.selectedDate.getMonth() - 1); this.renderCalendar();
+                }
+            }, {passive: true});
+        }
 
         // Discreet Mode
         document.getElementById('btn-discreet').addEventListener('click', () => {
@@ -278,12 +306,21 @@ class FlorApp {
         
         // Update App Mode visual badge
         const badge = document.getElementById('mode-badge');
+        const setCycleGroup = document.getElementById('settings-cycle-group');
+        const setPregGroup = document.getElementById('settings-pregnancy-group');
+
         if (this.data.settings.mode === 'gravidez') {
             badge.textContent = 'Gravidez'; badge.classList.remove('hidden');
+            if(setCycleGroup) setCycleGroup.classList.add('hidden');
+            if(setPregGroup) setPregGroup.classList.remove('hidden');
         } else if (this.data.settings.mode === 'adolescente') {
             badge.textContent = 'Jovem'; badge.classList.remove('hidden');
+            if(setCycleGroup) setCycleGroup.classList.remove('hidden');
+            if(setPregGroup) setPregGroup.classList.add('hidden');
         } else {
             badge.classList.add('hidden');
+            if(setCycleGroup) setCycleGroup.classList.remove('hidden');
+            if(setPregGroup) setPregGroup.classList.add('hidden');
         }
     }
 
@@ -363,16 +400,52 @@ class FlorApp {
         let fertilityProb = "Baixa";
         let progress = 0;
 
+        const cycleDash = document.getElementById('cycle-dashboard');
+        const pregDash = document.getElementById('pregnancy-dashboard');
+
         // Gravidez Mode Overrides
         if (this.data.settings.mode === 'gravidez') {
-            document.getElementById('home-day-label').textContent = "SEMANA";
+            if(cycleDash) cycleDash.classList.add('hidden');
+            if(pregDash) pregDash.classList.remove('hidden');
             document.getElementById('ovulation-card').classList.add('hidden');
-            predictionText = "Modo Gravidez Ativo";
+            
+            if (this.data.settings.pregDueDate) {
+                const dueDate = new Date(this.data.settings.pregDueDate);
+                // Start of pregnancy is approx 280 days before due date
+                const startPreg = new Date(dueDate.getTime() - (280 * 24 * 60 * 60 * 1000));
+                const today = new Date(todayStr);
+                const diffDays = Math.max(0, Math.round((today - startPreg) / (1000 * 60 * 60 * 24)));
+                const weeks = Math.floor(diffDays / 7);
+                const days = diffDays % 7;
+                
+                document.getElementById('preg-week').textContent = `${weeks}s ${days}d`;
+                const daysToDue = Math.max(0, Math.round((dueDate - today) / (1000 * 60 * 60 * 24)));
+                document.getElementById('preg-days-left').textContent = `Faltam ${daysToDue} dias`;
+                
+                progress = Math.min((diffDays / 280) * 100, 100);
+                const pregCircle = document.getElementById('preg-progress');
+                if (pregCircle) pregCircle.style.strokeDashoffset = 283 - (283 * progress) / 100;
+                
+                const sizes = ["Semente de Papoila", "Semente de Sésamo", "Lentilha", "Mirtilo", "Framboesa", "Cereja", "Morango", "Lima", "Limão", "Laranja", "Abacate", "Nabo", "Pimento", "Tomate", "Banana", "Cenoura", "Papaia", "Manga", "Batata Doce", "Milho", "Beringela", "Couve", "Alface", "Couve-Flor", "Melão", "Abóbora", "Coco", "Ananás", "Melancia Pequena", "Melancia Média", "Melancia Grande"];
+                const sizeIndex = Math.min(Math.max(weeks - 4, 0), sizes.length - 1);
+                document.getElementById('preg-baby-size').textContent = sizes[sizeIndex] || "--";
+            } else {
+                document.getElementById('preg-week').textContent = "--";
+                document.getElementById('preg-days-left').textContent = "Configura em Definições";
+                document.getElementById('preg-baby-size').textContent = "--";
+            }
             fertilityProb = "N/A";
-            cycleDayText = "💖";
         } else {
+            if(cycleDash) cycleDash.classList.remove('hidden');
+            if(pregDash) pregDash.classList.add('hidden');
             document.getElementById('home-day-label').textContent = "Dia do Ciclo";
-            document.getElementById('ovulation-card').classList.remove('hidden');
+            
+            const fertCards = document.getElementById('fertility-cards');
+            if (this.data.settings.mode === 'adolescente') {
+                if(fertCards) fertCards.classList.add('hidden');
+            } else {
+                if(fertCards) fertCards.classList.remove('hidden');
+            }
 
             if (this.data.cycles.length > 0) {
                 const currentCycle = this.data.cycles[this.data.cycles.length - 1];
@@ -403,6 +476,8 @@ class FlorApp {
                 else if (diffToOvul < 0 && diffToOvul >= -1) fertilityProb = "Alta";
                 else if (diffToOvul > 4 && diffToOvul <= 7) fertilityProb = "Média";
                 else fertilityProb = "Baixa";
+                
+                this.checkNotifications(daysLeft);
             }
         }
 
@@ -413,8 +488,8 @@ class FlorApp {
         document.getElementById('home-fertility-prob').style.color = (fertilityProb.includes("Alta") || fertilityProb.includes("Pico")) ? "var(--fertile-color)" : "inherit";
 
         // Circle Animation
-        const circle = document.querySelector('.circle-progress');
-        circle.style.strokeDashoffset = 283 - (283 * progress) / 100;
+        const cycleCircle = document.getElementById('cycle-progress');
+        if(cycleCircle && this.data.settings.mode !== 'gravidez') cycleCircle.style.strokeDashoffset = 283 - (283 * progress) / 100;
 
         // Smart Insights Generation
         this.generateSmartInsights(logToday, fertilityProb);
@@ -466,7 +541,7 @@ class FlorApp {
 
         let fertileStart = null, fertileEnd = null, ovulationDateStr = null;
 
-        if (this.data.cycles.length > 0 && this.data.settings.mode !== 'gravidez') {
+        if (this.data.cycles.length > 0 && this.data.settings.mode === 'padrao') {
             const currentCycle = this.data.cycles[this.data.cycles.length - 1];
             const startDate = new Date(currentCycle.start);
             const avg = this.data.settings.avgCycleLength;
@@ -492,7 +567,7 @@ class FlorApp {
             if (dateStr === todayStr) classes.push('today');
             if (log?.isPeriod) classes.push('period');
             
-            if (this.data.settings.mode !== 'gravidez') {
+            if (this.data.settings.mode === 'padrao') {
                 if (fertileStart && date >= fertileStart && date <= fertileEnd && dateStr !== ovulationDateStr) classes.push('fertile');
                 if (dateStr === ovulationDateStr) classes.push('ovulation');
             }
@@ -615,6 +690,9 @@ class FlorApp {
         if (log.health) log.health.forEach(v => document.querySelector(`#health-habits .pill[data-value="${v}"]`)?.classList.add('selected'));
         if (log.sleep) document.querySelector(`#sleep-options .pill[data-value="${log.sleep}"]`)?.classList.add('selected');
         if (log.notes) document.getElementById('log-notes').value = log.notes;
+        
+        document.getElementById('log-temp').value = log.temp || '';
+        document.getElementById('log-weight').value = log.weight || '';
 
         document.getElementById('log-modal').classList.add('open');
     }
@@ -628,6 +706,9 @@ class FlorApp {
         const sleep = document.querySelector('#sleep-options .pill.selected')?.getAttribute('data-value') || null;
         const sexActivity = document.querySelector('#sex-activity .pill.selected')?.getAttribute('data-value') || null;
         const sexLibido = document.querySelector('#sex-libido .pill.selected')?.getAttribute('data-value') || null;
+        
+        const temp = parseFloat(document.getElementById('log-temp').value) || null;
+        const weight = parseFloat(document.getElementById('log-weight').value) || null;
 
         // Collect arrays
         const getMulti = (selector) => Array.from(document.querySelectorAll(`${selector} .pill.selected`)).map(p => p.getAttribute('data-value'));
@@ -647,13 +728,58 @@ class FlorApp {
             isPeriod, flow, flowDetails, mucus,
             symptoms, moods,
             sex: { activity: sexActivity, libido: sexLibido, issues: sexIssues },
-            health, sleep, notes
+            health, sleep, notes, temp, weight
         };
 
         this.recalculateCycles();
         this.saveData();
         document.getElementById('log-modal').classList.remove('open');
         this.showToast("Diário guardado em segurança.");
+    }
+
+    openEduModal() {
+        const modalBody = document.querySelector('#edu-modal .modal-body');
+        if (this.data.settings.mode === 'gravidez') {
+            modalBody.innerHTML = `
+                <h4 class="mb-12">Cuidados na Gravidez 🤰</h4>
+                <p class="mb-12"><strong>Ácido Fólico:</strong> Essencial no primeiro trimestre para o desenvolvimento do bebé.</p>
+                <p class="mb-12"><strong>Hidratação:</strong> Bebe pelo menos 2 a 3 litros de água por dia.</p>
+                <p class="mb-12"><strong>Sintomas:</strong> Náuseas e cansaço são normais, descansa sempre que precisares.</p>
+            `;
+        } else if (this.data.settings.mode === 'adolescente') {
+            modalBody.innerHTML = `
+                <h4 class="mb-12">O teu corpo está a mudar 🌱</h4>
+                <p class="mb-12"><strong>Menstruação:</strong> É a descamação natural do útero, um sinal de saúde normal!</p>
+                <p class="mb-12"><strong>Cólicas:</strong> Um saco de água quente na barriga e chá ajudam muito.</p>
+                <p class="mb-12"><strong>Dúvidas?</strong> Não tenhas vergonha de falar com um adulto de confiança ou médico.</p>
+            `;
+        } else {
+            modalBody.innerHTML = `
+                <h4 class="mb-12">Fases do Ciclo 🌸</h4>
+                <p class="mb-12"><strong>Menstruação (Dias 1-5):</strong> Descamação do endométrio. Descansa.</p>
+                <p class="mb-12"><strong>Fase Folicular:</strong> O corpo prepara um óvulo. Energia e humor em alta.</p>
+                <p class="mb-12"><strong>Ovulação (Dia ~14):</strong> Pico de energia, fertilidade e líbido.</p>
+                <p class="mb-12"><strong>Fase Lútea:</strong> Preparação do corpo. Pode surgir TPM (cansaço, sensibilidade).</p>
+            `;
+        }
+        document.getElementById('edu-modal').classList.add('open');
+    }
+
+    checkNotifications(daysLeft) {
+        if ("Notification" in window && Notification.permission === "granted") {
+            const lastNotif = localStorage.getItem('flor_last_notif_date');
+            const todayStr = this.formatDate(new Date());
+            
+            if (lastNotif !== todayStr) {
+                if (daysLeft === 2) {
+                    new Notification("Flor 🌸", { body: "O teu período está previsto chegar em 2 dias." });
+                    localStorage.setItem('flor_last_notif_date', todayStr);
+                } else if (daysLeft === 0) {
+                    new Notification("Flor 🌸", { body: "O teu período é esperado para hoje." });
+                    localStorage.setItem('flor_last_notif_date', todayStr);
+                }
+            }
+        }
     }
 
     exportData() {
