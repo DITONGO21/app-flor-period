@@ -86,10 +86,32 @@ class FlorApp {
 
     // --- INITIALIZATION ---
     init() {
-        if (!this.isAuthenticated) {
+        if (!localStorage.getItem('flor_has_onboarded')) {
+            this.showOnboarding();
+        } else if (!this.isAuthenticated) {
             this.setupPinScreen();
         } else {
             this.startApp();
+        }
+    }
+
+    showOnboarding() {
+        const obs = document.getElementById('onboarding-screen');
+        if (obs) {
+            obs.classList.remove('hidden');
+            const btn = document.getElementById('btn-start-app');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    this.vibrate(15);
+                    localStorage.setItem('flor_has_onboarded', 'true');
+                    obs.classList.add('hidden');
+                    if (!this.isAuthenticated) {
+                        this.setupPinScreen();
+                    } else {
+                        this.startApp();
+                    }
+                });
+            }
         }
     }
 
