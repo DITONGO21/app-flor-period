@@ -40,6 +40,10 @@
                 <button class="pin-btn">7</button><button class="pin-btn">8</button><button class="pin-btn">9</button>
                 <button class="pin-btn action" id="pin-clear">C</button><button class="pin-btn">0</button><button class="pin-btn action" id="pin-delete">&larr;</button>
             </div>
+            <button id="btn-biometric-unlock" class="icon-btn hidden" style="margin: 24px auto 0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--primary); background: var(--primary-light); padding: 12px 24px; border-radius: 100px; border: none; width: auto; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path><path d="M12 8a4 4 0 0 1 4 4v1"></path><path d="M8 12a4 4 0 0 1 7.75-1.39"></path><path d="M12 16a4 4 0 0 1-4-4"></path><path d="M16 12a4 4 0 0 0-4-4"></path></svg>
+                Usar Biometria
+            </button>
         </div>
     </div>
 
@@ -184,6 +188,20 @@
                     </div>
                 </div>
 
+                <div class="card mt-16">
+                    <h3>Frequência de Sintomas & Humores</h3>
+                    <div id="chart-symptoms" class="symptoms-chart-container">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
+
+                <div class="card mt-16">
+                    <h3>Últimas Métricas Registadas</h3>
+                    <div id="metrics-tracker-container" class="metrics-tracker-list">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
+
                 <div class="card mt-16 history-list">
                     <h3>Histórico Recente</h3>
                     <ul id="history-list"></ul>
@@ -242,6 +260,10 @@
                     <div class="setting-item">
                         <span>Código PIN <small>(Segurança)</small></span>
                         <button id="btn-setup-pin" class="secondary-btn small">Configurar</button>
+                    </div>
+                    <div class="setting-item" id="biometric-row">
+                        <span>Biometria <small>(FaceID/TouchID)</small></span>
+                        <label class="switch"><input type="checkbox" id="biometric-toggle"><span class="slider round"></span></label>
                     </div>
                 </div>
 

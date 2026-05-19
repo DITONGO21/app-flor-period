@@ -5,6 +5,7 @@ class FlorApp {
         this.data = this.loadData();
         this.currentDate = new Date();
         this.selectedDate = new Date();
+        this.selectedCalendarDate = new Date();
         this.isAuthenticated = !this.data.settings.pin; // Se não tiver PIN, está logo autenticado
         
         this.init();
@@ -90,6 +91,7 @@ class FlorApp {
             this.showOnboarding();
         } else if (!this.isAuthenticated) {
             this.setupPinScreen();
+            this.authenticateBiometrics();
         } else {
             this.startApp();
         }
@@ -131,6 +133,23 @@ class FlorApp {
     setupPinScreen() {
         const pinScreen = document.getElementById('pin-screen');
         pinScreen.classList.remove('hidden');
+        
+        const bioBtn = document.getElementById('btn-biometric-unlock');
+        if (bioBtn) {
+            if (this.data.settings.biometricEnabled && window.PublicKeyCredential) {
+                bioBtn.classList.remove('hidden');
+                // Avoid double registration of click listener
+                if (!bioBtn.dataset.bound) {
+                    bioBtn.dataset.bound = "true";
+                    bioBtn.addEventListener('click', () => {
+                        this.vibrate(10);
+                        this.authenticateBiometrics();
+                    });
+                }
+            } else {
+                bioBtn.classList.add('hidden');
+            }
+        }
         
         let currentInput = "";
         const dots = document.querySelectorAll('.pin-dots .dot');
@@ -245,12 +264,44 @@ class FlorApp {
             if (newPin === null) return;
             if (newPin === "" || (/^\d{4}$/.test(newPin))) {
                 this.data.settings.pin = newPin === "" ? null : newPin;
+                if (newPin === "") {
+                    this.data.settings.biometricEnabled = false; // Disable bio if pin is removed
+                    const bioToggle = document.getElementById('biometric-toggle');
+                    if (bioToggle) bioToggle.checked = false;
+                }
                 this.saveData();
                 this.showToast(newPin ? "PIN configurado!" : "PIN removido!");
             } else {
                 this.showToast("PIN inválido. Tem de ter 4 números.");
             }
         });
+
+        // Biometric Setup Toggle
+        const bioToggle = document.getElementById('biometric-toggle');
+        const bioRow = document.getElementById('biometric-row');
+        if (bioToggle) {
+            if (!window.PublicKeyCredential) {
+                if (bioRow) bioRow.classList.add('hidden'); // Hide if not supported
+            } else {
+                bioToggle.checked = !!this.data.settings.biometricEnabled;
+                bioToggle.addEventListener('change', async (e) => {
+                    this.vibrate(10);
+                    if (e.target.checked) {
+                        if (!this.data.settings.pin) {
+                            this.showToast("Deves configurar um PIN primeiro!");
+                            e.target.checked = false;
+                        } else {
+                            const success = await this.enrollBiometrics();
+                            if (!success) e.target.checked = false;
+                        }
+                    } else {
+                        this.data.settings.biometricEnabled = false;
+                        this.saveData();
+                        this.showToast("Biometria desativada.");
+                    }
+                });
+            }
+        }
 
         // Home Buttons
         document.getElementById('btn-log-period').addEventListener('click', () => {
@@ -617,37 +668,146 @@ class FlorApp {
             }
 
             if (log?.sex && log.sex.activity && log.sex.activity !== 'nao') classes.push('has-sex');
+            
+            if (this.selectedCalendarDate && dateStr === this.formatDate(this.selectedCalendarDate)) {
+                classes.push('selected-day');
+            }
 
             const dayDiv = document.createElement('div');
             dayDiv.className = classes.join(' ');
             dayDiv.textContent = i;
             dayDiv.addEventListener('click', () => {
+                this.vibrate(5);
+                this.selectedCalendarDate = date;
+                this.renderCalendar();
                 this.showDaySummary(dateStr, date);
-                this.openLogModal(date);
             });
             fragment.appendChild(dayDiv);
         }
         grid.appendChild(fragment);
+
+        // Auto update details card for current selected calendar date
+        const selStr = this.formatDate(this.selectedCalendarDate);
+        this.showDaySummary(selStr, this.selectedCalendarDate);
     }
 
     showDaySummary(dateStr, date) {
         const summaryDiv = document.getElementById('calendar-day-summary');
-        const log = this.data.logs[dateStr];
+        if (!summaryDiv) return;
+        const log = this.data.logs[dateStr] || {};
         const dateFormatted = date.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' });
         
-        if (!log || Object.keys(log).length === 0) {
-            summaryDiv.innerHTML = `<strong>${dateFormatted}:</strong> Sem registos neste dia.`;
-            return;
+        let html = `<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <strong style="font-size: 16px; color: var(--primary);">${dateFormatted}</strong>
+            <button class="secondary-btn small" id="btn-edit-selected-day" style="margin:0;">Editar Diário</button>
+        </div>`;
+
+        let hasData = false;
+        let badgesHtml = '<div class="summary-badges-container">';
+
+        if (log.isPeriod) {
+            hasData = true;
+            let flowLabel = log.flow ? ` (${log.flow})` : '';
+            badgesHtml += `<span class="summary-badge badge-period">🩸 Período${flowLabel}</span>`;
+            if (log.flowDetails && log.flowDetails.length > 0) {
+                log.flowDetails.forEach(d => {
+                    badgesHtml += `<span class="summary-badge badge-period">🔹 ${d}</span>`;
+                });
+            }
         }
 
-        let parts = [];
-        if (log.isPeriod) parts.push("🩸 Menstruação");
-        if (log.flow && log.flow !== 'nenhum') parts.push(`Fluxo: ${log.flow}`);
-        if (log.symptoms && log.symptoms.length > 0) parts.push(`${log.symptoms.length} sintomas físicos`);
-        if (log.sex && log.sex.activity && log.sex.activity !== 'nao') parts.push("Intimidade");
-        if (log.notes) parts.push("📝 Tem notas no diário");
+        if (log.mucus && log.mucus !== 'seco') {
+            hasData = true;
+            badgesHtml += `<span class="summary-badge badge-period">💧 Muco: ${log.mucus}</span>`;
+        }
 
-        summaryDiv.innerHTML = `<strong>${dateFormatted}:</strong> ` + (parts.length > 0 ? parts.join(' • ') : "Registo mínimo.");
+        if (log.symptoms && log.symptoms.length > 0) {
+            hasData = true;
+            const symptomMap = {
+                colicas: "Cólicas 💥",
+                "dor-lombar": "Dor Lombar 🪵",
+                "dor-cabeca": "Dor de Cabeça 🤕",
+                "seios-sensiveis": "Seios Sensíveis 🍒",
+                acne: "Acne 🧼",
+                inchaco: "Inchaço 🎈",
+                nausea: "Náusea 🤢",
+                tonturas: "Tonturas 🌀",
+                desejos: "Desejos 🍫"
+            };
+            log.symptoms.forEach(s => {
+                badgesHtml += `<span class="summary-badge badge-symptom">${symptomMap[s] || s}</span>`;
+            });
+        }
+
+        if (log.moods && log.moods.length > 0) {
+            hasData = true;
+            const moodMap = {
+                feliz: "Feliz 😊",
+                sensivel: "Sensível 🥺",
+                triste: "Triste 😢",
+                irritada: "Irritada 😠",
+                ansiedade: "Ansiedade 😟",
+                stress: "Stress ⚡",
+                fadiga: "Cansada 😴",
+                energia: "Enérgica ⚡"
+            };
+            log.moods.forEach(m => {
+                badgesHtml += `<span class="summary-badge badge-mood">${moodMap[m] || m}</span>`;
+            });
+        }
+
+        if (log.sex && log.sex.activity && log.sex.activity !== 'nao') {
+            hasData = true;
+            let prot = log.sex.activity === 'protegida' ? '🔒 Protegida' : '🔓 Não Protegida';
+            let libido = log.sex.libido ? ` • Líbi. ${log.sex.libido}` : '';
+            badgesHtml += `<span class="summary-badge badge-sex">❤️ Intimidade (${prot}${libido})</span>`;
+            if (log.sex.issues && log.sex.issues.length > 0) {
+                log.sex.issues.forEach(i => {
+                    badgesHtml += `<span class="summary-badge badge-sex">⚠️ ${i}</span>`;
+                });
+            }
+        }
+
+        if (log.health && log.health.length > 0) {
+            hasData = true;
+            const healthMap = {
+                exercicio: "Exercício 🏃‍♀️",
+                agua: "Água 💧",
+                medicacao: "Medicação 💊",
+                vitamina: "Vitaminas 💊"
+            };
+            log.health.forEach(h => {
+                badgesHtml += `<span class="summary-badge badge-health">${healthMap[h] || h}</span>`;
+            });
+        }
+
+        if (log.temp || log.weight || log.sleep) {
+            hasData = true;
+            if (log.temp) badgesHtml += `<span class="summary-badge badge-metric">🌡️ ${log.temp} °C</span>`;
+            if (log.weight) badgesHtml += `<span class="summary-badge badge-metric">⚖️ ${log.weight} kg</span>`;
+            if (log.sleep) badgesHtml += `<span class="summary-badge badge-metric">😴 Sono: ${log.sleep}</span>`;
+        }
+
+        badgesHtml += '</div>';
+
+        if (hasData) {
+            html += badgesHtml;
+            if (log.notes) {
+                html += `<div class="summary-notes"><strong>Notas do Diário:</strong> ${log.notes}</div>`;
+            }
+        } else {
+            html += `<p class="text-muted" style="text-align: center; margin: 12px 0;">Sem registos íntimos guardados para este dia.</p>`;
+        }
+
+        summaryDiv.innerHTML = html;
+
+        const editBtn = document.getElementById('btn-edit-selected-day');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                this.vibrate(10);
+                this.openLogModal(date);
+            });
+        }
     }
 
     updateStats() {
@@ -677,30 +837,184 @@ class FlorApp {
     }
 
     renderCharts() {
+        // 1. Cycle Duration History Bar Chart
         const chartContainer = document.getElementById('chart-cycles');
-        chartContainer.innerHTML = '';
-        
-        const finished = this.data.cycles.filter(c => c.end).slice(-6); // Últimos 6
-        if (finished.length === 0) {
-            chartContainer.innerHTML = '<span class="text-muted">Sem dados para gráfico.</span>';
-            return;
+        if (chartContainer) {
+            chartContainer.innerHTML = '';
+            const finished = this.data.cycles.filter(c => c.end).slice(-6); // Últimos 6
+            if (finished.length === 0) {
+                chartContainer.innerHTML = '<span class="text-muted">Sem dados para gráfico.</span>';
+            } else {
+                const maxDays = Math.max(...finished.map(c => Math.round(Math.abs(new Date(c.end) - new Date(c.start)) / (1000 * 60 * 60 * 24)) + 1), 35);
+                finished.forEach((cycle, i) => {
+                    const diffDays = Math.round(Math.abs(new Date(cycle.end) - new Date(cycle.start)) / (1000 * 60 * 60 * 24)) + 1;
+                    const heightPercent = (diffDays / maxDays) * 100;
+                    const monthStr = new Date(cycle.start).toLocaleDateString('pt-PT', { month: 'short' });
+                    const isLatest = i === finished.length - 1;
+                    chartContainer.innerHTML += `
+                        <div class="chart-bar-container">
+                            <div class="chart-bar ${isLatest ? 'highlight' : ''}" style="height: ${heightPercent}%"></div>
+                            <span class="chart-label">${monthStr}</span>
+                        </div>
+                    `;
+                });
+            }
         }
 
-        const maxDays = Math.max(...finished.map(c => Math.round(Math.abs(new Date(c.end) - new Date(c.start)) / (1000 * 60 * 60 * 24)) + 1), 35);
-
-        finished.forEach((cycle, i) => {
-            const diffDays = Math.round(Math.abs(new Date(cycle.end) - new Date(cycle.start)) / (1000 * 60 * 60 * 24)) + 1;
-            const heightPercent = (diffDays / maxDays) * 100;
-            const monthStr = new Date(cycle.start).toLocaleDateString('pt-PT', { month: 'short' });
+        // 2. Symptom & Mood Frequencies Horizontal Bar Chart
+        const symptomChart = document.getElementById('chart-symptoms');
+        if (symptomChart) {
+            symptomChart.innerHTML = '';
             
-            const isLatest = i === finished.length - 1;
-            chartContainer.innerHTML += `
-                <div class="chart-bar-container">
-                    <div class="chart-bar ${isLatest ? 'highlight' : ''}" style="height: ${heightPercent}%"></div>
-                    <span class="chart-label">${monthStr}</span>
-                </div>
-            `;
-        });
+            const symptomCounts = {};
+            const symptomLabels = {
+                colicas: "Cólicas 💥",
+                "dor-lombar": "Dor Lombar 🪵",
+                "dor-cabeca": "Dor de Cabeça 🤕",
+                "seios-sensiveis": "Seios Sensíveis 🍒",
+                acne: "Acne 🧼",
+                inchaco: "Inchaço 🎈",
+                nausea: "Náusea 🤢",
+                tonturas: "Tonturas 🌀",
+                desejos: "Desejos 🍫",
+                feliz: "Feliz 😊",
+                sensivel: "Sensível 🥺",
+                triste: "Triste 😢",
+                irritada: "Irritada 😠",
+                ansiedade: "Ansiedade 😟",
+                stress: "Stress ⚡",
+                fadiga: "Cansada 😴",
+                energia: "Enérgica ⚡"
+            };
+
+            Object.values(this.data.logs).forEach(log => {
+                if (log.symptoms) {
+                    log.symptoms.forEach(s => { symptomCounts[s] = (symptomCounts[s] || 0) + 1; });
+                }
+                if (log.moods) {
+                    log.moods.forEach(m => { symptomCounts[m] = (symptomCounts[m] || 0) + 1; });
+                }
+            });
+
+            const sortedSymptoms = Object.entries(symptomCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            if (sortedSymptoms.length === 0) {
+                symptomChart.innerHTML = '<span class="text-muted">Ainda não registaste sintomas suficientes.</span>';
+            } else {
+                const maxCount = Math.max(...sortedSymptoms.map(s => s[1]), 1);
+                sortedSymptoms.forEach(([symptom, count]) => {
+                    const pct = (count / maxCount) * 100;
+                    const name = symptomLabels[symptom] || symptom;
+                    symptomChart.innerHTML += `
+                        <div class="symptom-row">
+                            <span class="symptom-label">${name}</span>
+                            <div class="symptom-bar-bg">
+                                <div class="symptom-bar-fill" style="width: ${pct}%"></div>
+                            </div>
+                            <span class="symptom-count">${count}x</span>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // 3. Body Metrics Tracker (Latest 5 logs with Metrics)
+        const metricsContainer = document.getElementById('metrics-tracker-container');
+        if (metricsContainer) {
+            metricsContainer.innerHTML = '';
+            
+            const logsWithMetrics = Object.entries(this.data.logs)
+                .filter(([dateStr, log]) => log.temp || log.weight)
+                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                .slice(0, 5);
+                
+            if (logsWithMetrics.length === 0) {
+                metricsContainer.innerHTML = '<span class="text-muted">Sem registos de temperatura ou peso.</span>';
+            } else {
+                logsWithMetrics.forEach(([dateStr, log]) => {
+                    const formattedDate = new Date(dateStr).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+                    let parts = [];
+                    if (log.temp) parts.push(`🌡️ ${log.temp} °C`);
+                    if (log.weight) parts.push(`⚖️ ${log.weight} kg`);
+                    
+                    metricsContainer.innerHTML += `
+                        <div class="metric-row-item">
+                            <span>${formattedDate}</span>
+                            <strong>${parts.join(' • ')}</strong>
+                        </div>
+                    `;
+                });
+            }
+        }
+    }
+
+    // --- BIOMETRIC SECURITY METHODS (WEBAUTHN) ---
+    async enrollBiometrics() {
+        if (!window.PublicKeyCredential) {
+            this.showToast("Biometria não suportada neste browser.");
+            return false;
+        }
+        try {
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+            const userID = new Uint8Array(16);
+            window.crypto.getRandomValues(userID);
+
+            const options = {
+                publicKey: {
+                    challenge: challenge,
+                    rp: { name: "Flor App" },
+                    user: {
+                        id: userID,
+                        name: "user@flor.app",
+                        displayName: "Utilizador Flor"
+                    },
+                    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+                    authenticatorSelection: {
+                        authenticatorAttachment: "platform",
+                        userVerification: "required"
+                    },
+                    timeout: 60000
+                }
+            };
+            
+            const credential = await navigator.credentials.create(options);
+            if (credential) {
+                this.data.settings.biometricEnabled = true;
+                this.saveData();
+                this.showToast("Biometria configurada em segurança!");
+                return true;
+            }
+        } catch (err) {
+            console.error("Erro na biometria:", err);
+            this.showToast("Falha na autenticação biométrica.");
+        }
+        return false;
+    }
+
+    async authenticateBiometrics() {
+        if (!this.data.settings.biometricEnabled || !window.PublicKeyCredential) return;
+        try {
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+            const options = {
+                publicKey: {
+                    challenge: challenge,
+                    timeout: 60000,
+                    userVerification: "required"
+                }
+            };
+            const assertion = await navigator.credentials.get(options);
+            if (assertion) {
+                this.vibrate(15);
+                this.isAuthenticated = true;
+                this.startApp();
+            }
+        } catch (err) {
+            console.log("Biometria recusada:", err);
+        }
     }
 
     // --- MODAL & LOGS ---

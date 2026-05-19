@@ -236,3 +236,115 @@ textarea:focus { outline: none; border-color: var(--primary); }
 .onboarding-content { max-width: 360px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .onboarding-content h2 { font-size: 26px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
 .onboarding-content p { line-height: 1.6; }
+
+/* Selected Calendar Day Highlight */
+.day-cell.selected-day {
+    box-shadow: 0 0 0 2px var(--primary);
+    transform: scale(1.1);
+    z-index: 2;
+}
+
+/* Biometric security button */
+#btn-biometric-unlock {
+    animation: fadeIn 0.3s ease;
+}
+#btn-biometric-unlock:active {
+    transform: scale(0.95);
+    background: rgba(194, 84, 122, 0.2);
+}
+
+/* Premium Badges for Calendar Day Summary */
+.summary-badges-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+.summary-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.summary-badge.badge-period { background: rgba(229, 107, 142, 0.15); color: var(--period-color); }
+.summary-badge.badge-symptom { background: rgba(255, 140, 66, 0.15); color: var(--accent); }
+.summary-badge.badge-mood { background: var(--primary-light); color: var(--primary); }
+.summary-badge.badge-sex { background: rgba(157, 138, 182, 0.15); color: var(--sex-color); }
+.summary-badge.badge-health { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+.summary-badge.badge-metric { background: var(--border); color: var(--text-main); }
+.summary-notes {
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--bg-color);
+    padding: 12px;
+    border-radius: 12px;
+    margin-top: 12px;
+    border-left: 3px solid var(--primary);
+    color: var(--text-main);
+}
+
+/* Symptoms Frequency Horizontal Bar Chart */
+.symptoms-chart-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+.symptom-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+}
+.symptom-label {
+    width: 90px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+.symptom-bar-bg {
+    flex: 1;
+    height: 10px;
+    background: var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.symptom-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary), var(--primary));
+    border-radius: 5px;
+    width: 0;
+    transition: width 1s ease-out;
+}
+.symptom-count {
+    width: 30px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* Metrics tracker styles */
+.metrics-tracker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+.metric-row-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-color);
+    border-radius: 12px;
+    font-size: 14px;
+    align-items: center;
+}
+.metric-row-item strong {
+    color: var(--primary);
+}
+

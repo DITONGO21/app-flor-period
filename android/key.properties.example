@@ -1,0 +1,8 @@
+# Ficheiro de exemplo para chaves de assinatura do Android de Produção (AAB/APK)
+# Copia este ficheiro como "key.properties" na pasta "android/" (este ficheiro está no .gitignore)
+# e preenche com os dados reais do teu keystore de produção.
+
+storePassword=A_TUA_PASSWORD_DO_STORE
+keyPassword=A_TUA_PASSWORD_DA_CHAVE
+keyAlias=O_TEU_ALIAS_DA_CHAVE
+storeFile=flor-release.keystore
